@@ -10,7 +10,8 @@ import {
     getEventById,
     createEvent,
     updateEvent,
-    deleteEvent
+    deleteEvent,
+    importHolyricsEvents
 } from '../../services/eventApi.js'
 
 import Button from '../../components/Button.jsx'
@@ -24,6 +25,12 @@ import EventFilterBar from './EventFilterBar.jsx'
 export default function Events() {
     const { id: bandId } = useParams()
 
+    const now = new Date()
+    const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+    const importKey = `holyrics_import_${bandId}`        // chave por banda
+    const currentMonth = now.getMonth() + 1 // 1 a 12
+    const currentYear = now.getFullYear()
+
     const [events, setEvents] = useState([])
     const [loading, setLoading] = useState(false)
 
@@ -32,6 +39,28 @@ export default function Events() {
     const [editingEvent, setEditingEvent] = useState(null)
     const [eventToDelete, setEventToDelete] = useState(null)
     const [filter, setFilter] = useState("now")
+
+    async function autoImportHolyricsOncePerDay() {
+        try {
+            const lastImport = localStorage.getItem(importKey)
+
+            // já importou hoje? → não faz de novo
+            if (lastImport === today) return
+
+            const now = new Date()
+            const month = now.getMonth() + 1
+            const year = now.getFullYear()
+            const month_year = Number(`${year}${String(month).padStart(2, "0")}`)
+
+            await importHolyricsEvents(bandId, month, year, month_year)
+
+            // marca que importou hoje
+            localStorage.setItem(importKey, today)
+
+        } catch (err) {
+            console.error("Erro ao importar eventos do Holyrics:", err)
+        }
+    }
 
 
     async function loadEvents() {
@@ -110,8 +139,14 @@ export default function Events() {
 
 
     useEffect(() => {
-        loadEvents()
+        async function run() {
+            await autoImportHolyricsOncePerDay()   // 🔥 agora só uma vez por dia
+            await loadEvents()                     // 🔥 recarrega os eventos normalmente
+        }
+        run()
     }, [bandId, filter])
+
+
 
     async function handleOpenDetails(eventId) {
         try {

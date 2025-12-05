@@ -45,3 +45,13 @@ export async function getBandEventsPast(bandId) {
     return data
 }
 
+export async function importHolyricsEvents(bandId, month, year, month_year) {
+    const { data } = await api.post(`/band/${bandId}/events/holyrics/import`, {
+        month,
+        year,
+        month_year
+    })
+    return data
+}
+
+
