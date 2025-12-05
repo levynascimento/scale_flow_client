@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useParams } from 'react-router-dom'
 import { useState } from 'react'
-import { Home, Music, ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
-import { logoutUser } from '../../utils/authUtils' // 🔹 importa aqui
+import { Home, Music, Calendar, ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
+import { logoutUser } from '../../utils/authUtils'
 
 export default function BandLayout() {
     const { id } = useParams()
@@ -30,6 +30,8 @@ export default function BandLayout() {
 
                 {/* Navegação */}
                 <nav className="flex-1 px-3 py-4 space-y-2">
+
+                    {/* Home */}
                     <NavLink
                         to={`/bands/${id}/home`}
                         end
@@ -45,6 +47,7 @@ export default function BandLayout() {
                         {!collapsed && 'Home'}
                     </NavLink>
 
+                    {/* Repertórios */}
                     <NavLink
                         to={`/bands/${id}/repertoires`}
                         className={({ isActive }) =>
@@ -58,17 +61,33 @@ export default function BandLayout() {
                         <Music size={18} />
                         {!collapsed && 'Repertório'}
                     </NavLink>
+
+                    {/* 📌 EVENTOS — novo item */}
+                    <NavLink
+                        to={`/bands/${id}/events`}
+                        className={({ isActive }) =>
+                            `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition ${
+                                isActive
+                                    ? 'bg-[#7c5fff] text-white'
+                                    : 'text-gray-300 hover:bg-[#2a2a2f]'
+                            }`
+                        }
+                    >
+                        <Calendar size={18} />
+                        {!collapsed && 'Eventos'}
+                    </NavLink>
                 </nav>
             </aside>
 
             {/* Conteúdo principal */}
             <main className="flex-1 flex flex-col">
-                {/* Header fixo com botão de sair */}
+
+                {/* Header fixo */}
                 <header className="bg-[#1b1b1f] border-b border-[#2a2a30] p-4 flex justify-between items-center shadow-sm">
                     <h2 className="text-lg font-medium text-gray-200">Painel da Banda</h2>
 
                     <button
-                        onClick={logoutUser} // 🔹 usa a função global
+                        onClick={logoutUser}
                         className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
                     >
                         <LogOut size={16} />

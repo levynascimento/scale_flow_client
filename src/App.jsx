@@ -12,6 +12,8 @@ import Repertoires from './pages/repertoires/Repertoires.jsx'
 import RepertoireForm from './pages/repertoires/RepertoireForm.jsx'
 import RepertoireEdit from "./pages/repertoires/RepertoireEdit.jsx";
 import BandLayout from "./components/layout/BandLayout.jsx";
+import Events from './pages/events/Events.jsx'
+
 
 export default function App() {
     return (
@@ -43,6 +45,7 @@ export default function App() {
                 <Route path="repertoires" element={<Repertoires />} />
                 <Route path="repertoires/new" element={<RepertoireForm />} />
                 <Route path="repertoires/:musicId/edit" element={<RepertoireEdit />} />
+                <Route path="events" element={<Events />} />
             </Route>
 
             {/* fallback */}
