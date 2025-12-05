@@ -29,3 +29,19 @@ export async function updateEvent(eventId, body) {
 export async function deleteEvent(eventId) {
     await api.delete(`/events/${eventId}`)
 }
+
+export async function getBandEventsToday(bandId) {
+    const { data } = await api.get(`/bands/${bandId}/events/now`)
+    return data
+}
+
+export async function getBandEventsFuture(bandId) {
+    const { data } = await api.get(`/bands/${bandId}/events/future`)
+    return data
+}
+
+export async function getBandEventsPast(bandId) {
+    const { data } = await api.get(`/bands/${bandId}/events/past`)
+    return data
+}
+
