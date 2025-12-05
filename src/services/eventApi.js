@@ -54,4 +54,21 @@ export async function importHolyricsEvents(bandId, month, year, month_year) {
     return data
 }
 
+export async function getEventMusics(eventId) {
+    const res = await api.get(`/events/${eventId}/musics`);
+    return res.data;
+}
+
+export async function addMusicToEvent(eventId, musicId) {
+    const res = await api.post(`/events/${eventId}/musics`, { musicId });
+    return res.data;
+}
+
+export async function removeMusicFromEvent(eventId, musicId) {
+    const res = await api.delete(`/events/${eventId}/musics`, {
+        data: { musicId }
+    });
+    return res.data;
+}
+
 
