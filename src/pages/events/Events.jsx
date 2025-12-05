@@ -26,10 +26,8 @@ export default function Events() {
     const { id: bandId } = useParams()
 
     const now = new Date()
-    const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-    const importKey = `holyrics_import_${bandId}`        // chave por banda
-    const currentMonth = now.getMonth() + 1 // 1 a 12
-    const currentYear = now.getFullYear()
+    const today = new Date().toISOString().slice(0, 10)
+    const importKey = `holyrics_import_${bandId}`
 
     const [events, setEvents] = useState([])
     const [loading, setLoading] = useState(false)
@@ -40,11 +38,18 @@ export default function Events() {
     const [eventToDelete, setEventToDelete] = useState(null)
     const [filter, setFilter] = useState("now")
 
+    /** Atualiza apenas 1 evento da lista */
+    function updateEventInList(eventId, newData) {
+        setEvents(prev =>
+            prev.map(ev =>
+                ev.id === eventId ? { ...ev, ...newData } : ev
+            )
+        )
+    }
+
     async function autoImportHolyricsOncePerDay() {
         try {
             const lastImport = localStorage.getItem(importKey)
-
-            // já importou hoje? → não faz de novo
             if (lastImport === today) return
 
             const now = new Date()
@@ -54,14 +59,11 @@ export default function Events() {
 
             await importHolyricsEvents(bandId, month, year, month_year)
 
-            // marca que importou hoje
             localStorage.setItem(importKey, today)
-
         } catch (err) {
             console.error("Erro ao importar eventos do Holyrics:", err)
         }
     }
-
 
     async function loadEvents() {
         try {
@@ -79,25 +81,13 @@ export default function Events() {
                 data = await getBandEvents(bandId)
             }
 
-            // =============================
-            // ORDENAR EVENTOS
-            // =============================
-
             const now = new Date()
 
             if (filter === "past") {
-                // passado → mais recente para mais antigo
                 data.sort((a, b) => new Date(b.startingTime) - new Date(a.startingTime))
-
             } else if (filter === "future" || filter === "now") {
-                // futuro/hoje → mais próximo para mais distante
                 data.sort((a, b) => new Date(a.startingTime) - new Date(b.startingTime))
-
             } else {
-                // =============================
-                // FILTRO "TODOS"
-                // =============================
-
                 data.sort((a, b) => {
                     const aStart = new Date(a.startingTime)
                     const bStart = new Date(b.startingTime)
@@ -108,24 +98,19 @@ export default function Events() {
                     const aIsToday = aStart <= now && new Date(a.endingTime) >= now
                     const bIsToday = bStart <= now && new Date(b.endingTime) >= now
 
-                    // 1) HOJE primeiro
                     if (aIsToday && !bIsToday) return -1
                     if (!aIsToday && bIsToday) return 1
 
-                    // 2) FUTUROS depois
                     if (!aEnded && bEnded) return -1
                     if (aEnded && !bEnded) return 1
 
-                    // 3) FUTUROS → ordenação crescente
                     if (!aEnded && !bEnded)
                         return aStart - bStart
 
-                    // 4) PASSADOS → ordenação decrescente
                     return bStart - aStart
                 })
             }
 
-            // AQUI ATUALIZA A LISTA
             setEvents(data)
 
         } catch (err) {
@@ -136,23 +121,20 @@ export default function Events() {
         }
     }
 
-
-
     useEffect(() => {
         async function run() {
-            await autoImportHolyricsOncePerDay()   // 🔥 agora só uma vez por dia
-            await loadEvents()                     // 🔥 recarrega os eventos normalmente
+            await autoImportHolyricsOncePerDay()
+            await loadEvents()
         }
         run()
     }, [bandId, filter])
-
 
 
     async function handleOpenDetails(eventId) {
         try {
             const data = await getEventById(eventId)
             setSelectedEvent(data)
-        } catch (err) {
+        } catch {
             toast.error("Erro ao carregar detalhes do evento.")
         }
     }
@@ -172,17 +154,19 @@ export default function Events() {
         try {
             if (editingEvent) {
                 await updateEvent(editingEvent.id, formData)
-                toast.success("Evento atualizado com sucesso!")
+                toast.success("Evento atualizado!")
             } else {
                 await createEvent(bandId, formData)
-                toast.success("Evento criado com sucesso!")
+                toast.success("Evento criado!")
             }
 
             setFormOpen(false)
             setEditingEvent(null)
             setSelectedEvent(null)
+
             await loadEvents()
-        } catch (err) {
+
+        } catch {
             toast.error("Erro ao salvar evento.")
         }
     }
@@ -196,7 +180,8 @@ export default function Events() {
             setSelectedEvent(null)
 
             await loadEvents()
-        } catch (err) {
+
+        } catch {
             toast.error("Erro ao excluir evento.")
         }
     }
@@ -204,7 +189,6 @@ export default function Events() {
     return (
         <div className="space-y-6">
 
-            {/* Cabeçalho */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-semibold text-[#c4b5ff]">Eventos</h1>
@@ -218,18 +202,16 @@ export default function Events() {
                 </Button>
             </div>
 
-            {/* Barra de filtros */}
             <EventFilterBar
                 current={filter}
                 onChange={setFilter}
             />
 
-            {/* Lista de eventos */}
             {loading ? (
-                <p className="text-sm text-gray-400">Carregando eventos…</p>
+                <p className="text-gray-400 text-sm">Carregando eventos…</p>
             ) : events.length === 0 ? (
-                <p className="text-sm text-gray-400">
-                    Nenhum evento encontrado para este filtro.
+                <p className="text-gray-400 text-sm">
+                    Nenhum evento encontrado.
                 </p>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -243,16 +225,20 @@ export default function Events() {
                 </div>
             )}
 
-            {/* Modal de detalhes */}
             <EventViewModal
                 open={!!selectedEvent}
                 event={selectedEvent}
                 onClose={() => setSelectedEvent(null)}
                 onEdit={handleOpenEdit}
                 onDelete={() => setEventToDelete(selectedEvent)}
+                onUpdated={(changes) => {
+                    if (selectedEvent) {
+                        updateEventInList(selectedEvent.id, changes)
+                    }
+                    loadEvents()
+                }}
             />
 
-            {/* Modal de criação/edição */}
             <EventFormModal
                 open={formOpen}
                 event={editingEvent}
@@ -263,13 +249,12 @@ export default function Events() {
                 onSubmit={handleSubmitForm}
             />
 
-            {/* Diálogo de confirmação */}
             <ConfirmDialog
                 open={!!eventToDelete}
                 title="Excluir evento"
                 message={
                     eventToDelete
-                        ? `Deseja excluir o evento "${eventToDelete.name}"? Essa ação não pode ser desfeita.`
+                        ? `Deseja excluir o evento "${eventToDelete.name}"?`
                         : ""
                 }
                 onConfirm={handleConfirmDelete}

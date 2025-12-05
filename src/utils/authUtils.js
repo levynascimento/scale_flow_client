@@ -4,7 +4,6 @@ import toast from 'react-hot-toast'
 export function logoutUser() {
     // Limpa dados do usuário
     localStorage.removeItem('token')
-    localStorage.removeItem('sf:userEmail')
 
     // Remove o token do axios
     setAuthToken(null)

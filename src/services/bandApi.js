@@ -53,14 +53,6 @@ export async function getBandJoinCode(id) {
     return data
 }
 
-export async function getUserRoleInBand(bandId) {
-    const { data } = await api.get(`/bands/${bandId}/integrants`)
-    const userEmail = localStorage.getItem('sf:userEmail')
-    const currentMember = data.find(m => m.user?.email === userEmail)
-    return currentMember || { type: 'MEMBER' }
-}
-
-
 // 👥 Buscar todos os integrantes de uma banda
 export async function getBandMembers(bandId) {
     const { data } = await api.get(`/bands/${bandId}/integrants`)
