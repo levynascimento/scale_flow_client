@@ -93,6 +93,19 @@ export default function BandLayout() {
                         {!collapsed && 'Papéis'}
                     </NavLink>
 
+                    <NavLink
+                        to={`/bands/${id}/lineups`}
+                        className={({ isActive }) =>
+                            `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition ${
+                                isActive
+                                    ? 'bg-[#7c5fff] text-white'
+                                    : 'text-gray-300 hover:bg-[#2a2a2f]'
+                            }`
+                        }
+                    >
+                        <Layers size={18} />
+                        {!collapsed && 'Formações'}
+                    </NavLink>
                 </nav>
             </aside>
 

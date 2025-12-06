@@ -13,6 +13,8 @@ import RepertoireForm from './pages/repertoires/RepertoireForm.jsx'
 import RepertoireEdit from "./pages/repertoires/RepertoireEdit.jsx";
 import BandLayout from "./components/layout/BandLayout.jsx";
 import Events from './pages/events/Events.jsx'
+import Lineups from './pages/lineups/Lineups.jsx'
+
 
 
 // IMPORTS DAS NOVAS TELAS DE ROLES
@@ -51,6 +53,7 @@ export default function App() {
                 <Route path="repertoires/:musicId/edit" element={<RepertoireEdit />} />
                 <Route path="events" element={<Events />} />
                 <Route path="roles" element={<Roles />} />
+                <Route path="lineups" element={<Lineups />} />
 
             </Route>
 
