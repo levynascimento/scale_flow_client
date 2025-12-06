@@ -15,6 +15,9 @@ import BandLayout from "./components/layout/BandLayout.jsx";
 import Events from './pages/events/Events.jsx'
 
 
+// IMPORTS DAS NOVAS TELAS DE ROLES
+import Roles from "./pages/roles/Roles.jsx";
+
 export default function App() {
     return (
         <Routes>
@@ -41,11 +44,14 @@ export default function App() {
                     </ProtectedRoute>
                 }
             >
+                {/* páginas existentes */}
                 <Route path="home" element={<BandHome />} />
                 <Route path="repertoires" element={<Repertoires />} />
                 <Route path="repertoires/new" element={<RepertoireForm />} />
                 <Route path="repertoires/:musicId/edit" element={<RepertoireEdit />} />
                 <Route path="events" element={<Events />} />
+                <Route path="roles" element={<Roles />} />
+
             </Route>
 
             {/* fallback */}
