@@ -1,161 +1,244 @@
-import { useEffect, useState } from 'react'
-import Button from '../../components/Button.jsx'
+import { useEffect, useState } from "react";
+import Button from "../../components/Button";
 import {
     getEventMusics,
-    removeMusicFromEvent
-} from "../../services/eventApi.js";
-import SelectMusicModal from "./components/SelectMusicModal.jsx";
+    getEventSuggestions,
+    addMusicToEvent,
+    createSuggestion,
+    acceptSuggestion,
+    deleteSuggestion
+} from "../../services/eventApi";
+import SelectMusicModal from "./components/SelectMusicModal";
 import toast from "react-hot-toast";
 
-function formatDateTime(value) {
-    if (!value) return '-'
-    const date = new Date(value)
-    return date.toLocaleString('pt-BR', {
-        dateStyle: 'short',
-        timeStyle: 'short'
-    })
-}
+export default function EventViewModal({ open, event, onClose, isAdmin, onUpdated }) {
 
-export default function EventViewModal({ open, event, onClose, onEdit, onDelete, onUpdated }) {
     const [musics, setMusics] = useState([]);
-    const [loadingMusics, setLoadingMusics] = useState(false);
-    const [musicModalOpen, setMusicModalOpen] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const [openAddModal, setOpenAddModal] = useState(false);
+    const [openSuggestModal, setOpenSuggestModal] = useState(false);
+
+    // ===============================
+    // Carregar músicas e sugestões
+    // ===============================
+    async function loadData() {
+        if (!event) return;
+
+        try {
+            const [evMusics, evSuggestions] = await Promise.all([
+                getEventMusics(event.id),
+                getEventSuggestions(event.id)
+            ]);
+
+            setMusics(evMusics);
+            setSuggestions(evSuggestions);
+
+        } catch (err) {
+            console.error(err);
+            toast.error("Erro ao carregar dados.");
+        } finally {
+            setLoading(false);
+        }
+    }
 
     useEffect(() => {
-        if (open && event) loadMusics();
-    }, [open, event]);
-
-    async function loadMusics() {
-        try {
-            setLoadingMusics(true);
-            const data = await getEventMusics(event.id);
-            setMusics(data);
-        } catch {
-            toast.error("Erro ao carregar músicas do evento.");
-        } finally {
-            setLoadingMusics(false);
+        if (open) {
+            setLoading(true);
+            loadData();
         }
-    }
-
-    async function handleRemove(musicId) {
-        try {
-            await removeMusicFromEvent(event.id, musicId);
-            toast.success("Música removida!");
-
-            const newCount = (event.chosenMusicsCount ?? musics.length) - 1;
-
-            setMusics(prev => prev.filter(m => m.id !== musicId));
-
-            onUpdated?.({ chosenMusicsCount: newCount });
-
-        } catch {
-            toast.error("Erro ao remover música.");
-        }
-    }
+    }, [open]);
 
     if (!open || !event) return null;
 
+    // ===============================
+    // Aceitar sugestão
+    // ===============================
+    async function handleAccept(id) {
+        try {
+            await acceptSuggestion(id);
+            toast.success("Sugestão aceita!");
+
+            await loadData();
+            onUpdated?.();
+
+        } catch (err) {
+            console.error(err);
+            toast.error("Erro ao aceitar.");
+        }
+    }
+
+    // ===============================
+    // Rejeitar sugestão
+    // ===============================
+    async function handleReject(id) {
+        try {
+            await deleteSuggestion(id);
+            toast.success("Sugestão removida.");
+
+            await loadData();
+            onUpdated?.();
+
+        } catch (err) {
+            console.error(err);
+            toast.error("Erro ao remover sugestão.");
+        }
+    }
+
+    // ===============================
+    // Quando MEMBER envia uma sugestão
+    // ===============================
+    async function handleSuggestionAdded() {
+        try {
+            const updated = await getEventSuggestions(event.id);
+
+            setSuggestions(updated);
+
+            // Atualiza o card do evento na tela principal
+            onUpdated?.({ suggestionsCount: updated.length });
+
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // ===============================
+    // COMPONENTE
+    // ===============================
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-[#1b1b1f] border border-[#2a2a30] rounded-2xl p-6
-                            w-[95%] max-w-xl shadow-2xl">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-start overflow-y-auto z-[9999] py-10">
+            <div className="bg-[#1a1a1e] border border-[#2a2a30] rounded-2xl p-8 w-[90%] max-w-3xl text-gray-200 shadow-xl">
 
-                <h2 className="text-2xl font-semibold text-[#c4b5ff] mb-2">
-                    {event.name}
-                </h2>
-
-                <p className="text-sm text-gray-400 mb-4">
-                    {formatDateTime(event.startingTime)} &rarr; {formatDateTime(event.endingTime)}
+                {/* TÍTULO */}
+                <h1 className="text-3xl font-bold mb-1">{event.name}</h1>
+                <p className="text-gray-400 mb-4">
+                    {new Date(event.startingTime).toLocaleString("pt-BR")}
+                    {" → "}
+                    {new Date(event.endingTime).toLocaleString("pt-BR")}
                 </p>
 
-                <div className="flex flex-wrap gap-3 text-sm text-gray-300 mb-6">
-                    <span className="px-3 py-1 rounded-full bg-[#111118] border border-[#2a2a30]">
-                        Escalações: {event.escalationsCount ?? 0}
+                {/* BADGES */}
+                <div className="flex gap-3 mb-6">
+                    <span className="px-3 py-1 rounded-full bg-black/20 border border-black/40 text-sm">
+                        Escalações: {event.escalationsCount}
                     </span>
-                    <span className="px-3 py-1 rounded-full bg-[#111118] border border-[#2a2a30]">
-                        Sugestões: {event.suggestionsCount ?? 0}
+                    <span className="px-3 py-1 rounded-full bg-black/20 border border-black/40 text-sm">
+                        Sugestões: {suggestions.length}
                     </span>
-                    <span className="px-3 py-1 rounded-full bg-[#111118] border border-[#2a2a30]">
+                    <span className="px-3 py-1 rounded-full bg-black/20 border border-black/40 text-sm">
                         Músicas escolhidas: {musics.length}
                     </span>
                 </div>
 
-                <h3 className="text-lg font-semibold text-[#c4b5ff] mb-3">Músicas do Evento</h3>
+                {/* =============================== */}
+                {/* MÚSICAS DO EVENTO */}
+                {/* =============================== */}
+                <h2 className="text-2xl font-semibold mb-3">Músicas do Evento</h2>
 
-                {loadingMusics ? (
-                    <p className="text-gray-400">Carregando músicas...</p>
-                ) : musics.length === 0 ? (
-                    <p className="text-gray-500 mb-3">Nenhuma música escolhida ainda.</p>
+                {musics.length === 0 ? (
+                    <p className="text-gray-500 mb-4">Nenhuma música adicionada.</p>
                 ) : (
-                    <div className="space-y-2 mb-4 max-h-40 overflow-y-auto pr-1">
-                        {musics.map(music => (
-                            <div key={music.id}
-                                 className="flex justify-between items-center
-                                            bg-[#111118] border border-[#2a2a30] p-3 rounded-lg">
-                                <div>
-                                    <p className="text-gray-200">{music.title}</p>
-                                    <p className="text-gray-400 text-sm">{music.artist}</p>
-                                </div>
-
-                                <Button
-                                    variant="outline"
-                                    className="border-red-600 text-red-500 hover:bg-red-600 hover:text-white"
-                                    onClick={() => handleRemove(music.id)}
-                                >
-                                    Remover
-                                </Button>
+                    <div className="space-y-3 mb-6">
+                        {musics.map(m => (
+                            <div key={m.id} className="p-4 bg-[#111118] border border-[#2a2a30] rounded-xl">
+                                <p className="text-lg font-medium">{m.title}</p>
+                                <p className="text-gray-400 text-sm">{m.artist}</p>
                             </div>
                         ))}
                     </div>
                 )}
 
-                <Button
-                    className="w-full bg-[#7c5fff] hover:bg-[#6a4ee8] mb-6"
-                    onClick={() => setMusicModalOpen(true)}
-                >
-                    + Adicionar Música
-                </Button>
-
-                <div className="flex justify-between items-center gap-3">
+                {/* BOTÃO ADMIN → ADICIONAR */}
+                {isAdmin && (
                     <Button
-                        variant="outline"
-                        className="border-[#2a2a30] text-gray-300 hover:bg-[#191920]"
-                        onClick={onClose}
+                        className="w-full bg-[#7c5fff] hover:bg-[#6a4ee8] mb-8"
+                        onClick={() => setOpenAddModal(true)}
                     >
+                        + Adicionar Música
+                    </Button>
+                )}
+
+                {/* =============================== */}
+                {/* SUGESTÕES */}
+                {/* =============================== */}
+                <h2 className="text-2xl font-semibold mb-3">Sugestões enviadas</h2>
+
+                {suggestions.length === 0 ? (
+                    <p className="text-gray-500 mb-4">Nenhuma sugestão enviada.</p>
+                ) : (
+                    <div className="space-y-4 mb-6">
+                        {suggestions.map(s => (
+                            <div key={s.id} className="p-4 bg-[#111118] border border-[#2a2a30] rounded-xl">
+                                <p className="text-lg font-medium">{s.music.title}</p>
+                                <p className="text-gray-400 text-sm">{s.music.artist}</p>
+
+                                <p className="text-gray-500 text-xs mt-1">
+                                    Sugerido por: {s.authorName || "Integrante"}
+                                </p>
+
+                                {isAdmin && (
+                                    <div className="flex gap-3 mt-3">
+                                        <Button
+                                            className="bg-emerald-600/80 hover:bg-emerald-500 text-white"
+                                            onClick={() => handleAccept(s.id)}
+                                        >
+                                            Aceitar
+                                        </Button>
+
+                                        <Button
+                                            className="bg-rose-600/80 hover:bg-rose-500 text-white"
+                                            onClick={() => handleReject(s.id)}
+                                        >
+                                            Rejeitar
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* BOTÃO MEMBER → SUGERIR */}
+                {!isAdmin && (
+                    <Button
+                        className="w-full bg-[#7c5fff] hover:bg-[#6a4ee8] mb-8"
+                        onClick={() => setOpenSuggestModal(true)}
+                    >
+                        Sugerir Música
+                    </Button>
+                )}
+
+                {/* FECHAR */}
+                <div className="flex justify-start mt-2">
+                    <Button variant="outline" onClick={onClose}>
                         Fechar
                     </Button>
-
-                    <div className="flex gap-3">
-                        <Button
-                            variant="outline"
-                            className="border-[#2a2a30] text-gray-300 hover:bg-[#191920]"
-                            onClick={onEdit}
-                        >
-                            Editar
-                        </Button>
-                        <Button
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={onDelete}
-                        >
-                            Excluir
-                        </Button>
-                    </div>
                 </div>
-
-                <SelectMusicModal
-                    open={musicModalOpen}
-                    eventId={event.id}
-                    onClose={() => setMusicModalOpen(false)}
-                    onAdded={() => {
-                        const newCount = (event.chosenMusicsCount ?? musics.length) + 1;
-
-                        loadMusics();
-
-                        onUpdated?.({ chosenMusicsCount: newCount });
-                    }}
-                />
-
             </div>
+
+            {/* MODAL ADMIN → ADICIONAR MÚSICA */}
+            <SelectMusicModal
+                open={openAddModal}
+                eventId={event.id}
+                onClose={() => setOpenAddModal(false)}
+                onAdded={() => {
+                    loadData();
+                    onUpdated?.();
+                }}
+                isSuggestion={false}
+                onResetSearch={true}
+            />
+
+            {/* MODAL MEMBER → SUGERIR MÚSICA */}
+            <SelectMusicModal
+                open={openSuggestModal}
+                eventId={event.id}
+                onClose={() => setOpenSuggestModal(false)}
+                onAdded={handleSuggestionAdded}
+                isSuggestion={true}
+                onResetSearch={true}
+            />
         </div>
-    )
+    );
 }

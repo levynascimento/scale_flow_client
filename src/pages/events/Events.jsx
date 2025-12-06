@@ -23,6 +23,9 @@ import EventViewModal from './EventViewModal.jsx'
 import EventFilterBar from './EventFilterBar.jsx'
 
 export default function Events() {
+    const role = localStorage.getItem("bandRole");
+    const isAdmin = role === "ADMIN";
+
     const { id: bandId } = useParams()
 
     const now = new Date()
@@ -228,6 +231,7 @@ export default function Events() {
             <EventViewModal
                 open={!!selectedEvent}
                 event={selectedEvent}
+                isAdmin={isAdmin}
                 onClose={() => setSelectedEvent(null)}
                 onEdit={handleOpenEdit}
                 onDelete={() => setEventToDelete(selectedEvent)}

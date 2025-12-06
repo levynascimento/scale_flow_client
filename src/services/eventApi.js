@@ -71,4 +71,26 @@ export async function removeMusicFromEvent(eventId, musicId) {
     return res.data;
 }
 
+// 📌 Buscar sugestões do evento
+export async function getEventSuggestions(eventId) {
+    const { data } = await api.get(`/events/${eventId}/suggestions`);
+    return data;
+}
+
+// 📌 Criar nova sugestão
+export async function createSuggestion(eventId, musicId) {
+    const { data } = await api.post(`/events/${eventId}/suggestions`, { musicId });
+    return data;
+}
+
+export async function acceptSuggestion(suggestionId) {
+    await api.put(`/suggestions/${suggestionId}/accept`)
+}
+
+export async function deleteSuggestion(suggestionId) {
+    await api.delete(`/suggestions/${suggestionId}`)
+}
+
+
+
 
