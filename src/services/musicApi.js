@@ -35,3 +35,26 @@ export async function createMusic(bandId, body) {
     const { data } = await api.post(`/bands/${bandId}/musics`, body)
     return data
 }
+
+// 🎚️ DIFICULDADE DE MÚSICAS POR PAPEL
+// -------------------------------------------
+
+// Listar dificuldades da música
+export async function getMusicDifficulties(id) {
+    const { data } = await api.get(`/musics/${id}/difficulties`)
+    return data
+}
+
+// Definir ou sobrescrever dificuldade de um papel
+export async function setMusicDifficulty(id, roleSlug, level) {
+    const { data } = await api.post(`/musics/${id}/difficulties/${roleSlug}`, {
+        level
+    })
+    return data
+}
+
+// Remover dificuldade específica
+export async function deleteMusicDifficulty(id, roleSlug) {
+    const { data } = await api.delete(`/musics/${id}/difficulties/${roleSlug}`)
+    return data
+}
