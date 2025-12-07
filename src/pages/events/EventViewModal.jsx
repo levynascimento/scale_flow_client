@@ -10,8 +10,9 @@ import {
 } from "../../services/eventApi";
 import SelectMusicModal from "./components/SelectMusicModal";
 import toast from "react-hot-toast";
+import { Users } from "lucide-react"; // ⬅ botão de escalação
 
-export default function EventViewModal({ open, event, onClose, isAdmin, onUpdated }) {
+export default function EventViewModal({ open, event, onClose, isAdmin, onUpdated, onEscalation }) {
 
     const [musics, setMusics] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
@@ -95,7 +96,6 @@ export default function EventViewModal({ open, event, onClose, isAdmin, onUpdate
 
             setSuggestions(updated);
 
-            // Atualiza o card do evento na tela principal
             onUpdated?.({ suggestionsCount: updated.length });
 
         } catch (err) {
@@ -120,16 +120,32 @@ export default function EventViewModal({ open, event, onClose, isAdmin, onUpdate
 
                 {/* BADGES */}
                 <div className="flex gap-3 mb-6">
+
+                    {/* ⬅ Escalações - usando event.escalationsCount */}
                     <span className="px-3 py-1 rounded-full bg-black/20 border border-black/40 text-sm">
-                        Escalações: {event.escalationsCount}
+                        Escalações: {event.escalationsCount ?? 0}
                     </span>
+
                     <span className="px-3 py-1 rounded-full bg-black/20 border border-black/40 text-sm">
                         Sugestões: {suggestions.length}
                     </span>
+
                     <span className="px-3 py-1 rounded-full bg-black/20 border border-black/40 text-sm">
                         Músicas escolhidas: {musics.length}
                     </span>
                 </div>
+
+                {/* BOTÃO → GERENCIAR ESCALAÇÃO */}
+                <Button
+                    className="w-full bg-[#2d2d34] hover:bg-[#3a3a42] mb-8 flex items-center justify-center gap-2"
+                    onClick={() => {
+                        // chama o modal de escalação no Events.jsx
+                        onEscalation?.(event);
+                    }}
+                >
+                    <Users size={18} />
+                    Gerenciar Escalação
+                </Button>
 
                 {/* =============================== */}
                 {/* MÚSICAS DO EVENTO */}

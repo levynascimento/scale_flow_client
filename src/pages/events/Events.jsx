@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import toast from 'react-hot-toast'
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 import {
     getBandEvents,
@@ -12,34 +12,44 @@ import {
     updateEvent,
     deleteEvent,
     importHolyricsEvents
-} from '../../services/eventApi.js'
+} from '../../services/eventApi.js';
 
-import Button from '../../components/Button.jsx'
-import ConfirmDialog from '../../components/ConfirmDialog.jsx'
+import { getBandIntegrants } from '../../services/integrantsApi.js';
+import { getRoles } from '../../services/rolesApi.js';
+
+import Button from '../../components/Button.jsx';
+import ConfirmDialog from '../../components/ConfirmDialog.jsx';
 
 import EventCard from "./components/EventCard.jsx";
-import EventFormModal from './EventFormModal.jsx'
-import EventViewModal from './EventViewModal.jsx'
-import EventFilterBar from './EventFilterBar.jsx'
+import EventFormModal from './EventFormModal.jsx';
+import EventViewModal from './EventViewModal.jsx';
+import EventFilterBar from './EventFilterBar.jsx';
+import EventEscalationModal from "./EventEscalationModal.jsx";
 
 export default function Events() {
     const role = localStorage.getItem("bandRole");
     const isAdmin = role === "ADMIN";
 
-    const { id: bandId } = useParams()
+    const { id: bandId } = useParams();
 
-    const now = new Date()
-    const today = new Date().toISOString().slice(0, 10)
-    const importKey = `holyrics_import_${bandId}`
+    const today = new Date().toISOString().slice(0, 10);
+    const importKey = `holyrics_import_${bandId}`;
 
-    const [events, setEvents] = useState([])
-    const [loading, setLoading] = useState(false)
+    const [events, setEvents] = useState([]);
+    const [loading, setLoading] = useState(false);
 
-    const [selectedEvent, setSelectedEvent] = useState(null)
-    const [formOpen, setFormOpen] = useState(false)
-    const [editingEvent, setEditingEvent] = useState(null)
-    const [eventToDelete, setEventToDelete] = useState(null)
-    const [filter, setFilter] = useState("now")
+    const [selectedEvent, setSelectedEvent] = useState(null);
+    const [formOpen, setFormOpen] = useState(false);
+    const [editingEvent, setEditingEvent] = useState(null);
+    const [eventToDelete, setEventToDelete] = useState(null);
+    const [filter, setFilter] = useState("now");
+
+    // ⭐ Escalação
+    const [openEscalation, setOpenEscalation] = useState(false);
+    const [escalationEvent, setEscalationEvent] = useState(null);
+
+    const [allIntegrants, setAllIntegrants] = useState([]);
+    const [allRoles, setAllRoles] = useState([]);  // ⭐ AGORA O NOME CORRETO
 
     /** Atualiza apenas 1 evento da lista */
     function updateEventInList(eventId, newData) {
@@ -47,148 +57,193 @@ export default function Events() {
             prev.map(ev =>
                 ev.id === eventId ? { ...ev, ...newData } : ev
             )
-        )
+        );
     }
 
+    // -----------------------------------------------------
+    // AUTO-IMPORT
+    // -----------------------------------------------------
     async function autoImportHolyricsOncePerDay() {
         try {
-            const lastImport = localStorage.getItem(importKey)
-            if (lastImport === today) return
+            const last = localStorage.getItem(importKey);
+            if (last === today) return;
 
-            const now = new Date()
-            const month = now.getMonth() + 1
-            const year = now.getFullYear()
-            const month_year = Number(`${year}${String(month).padStart(2, "0")}`)
+            const now = new Date();
+            const month = now.getMonth() + 1;
+            const year = now.getFullYear();
+            const month_year = Number(`${year}${String(month).padStart(2, "0")}`);
 
-            await importHolyricsEvents(bandId, month, year, month_year)
+            await importHolyricsEvents(bandId, month, year, month_year);
+            localStorage.setItem(importKey, today);
 
-            localStorage.setItem(importKey, today)
         } catch (err) {
-            console.error("Erro ao importar eventos do Holyrics:", err)
+            console.error("Erro ao importar eventos do Holyrics:", err);
         }
     }
 
+    // -----------------------------------------------------
+    // LOAD EVENTS
+    // -----------------------------------------------------
     async function loadEvents() {
         try {
-            setLoading(true)
+            setLoading(true);
 
-            let data = []
+            let data = [];
 
             if (filter === "now") {
-                data = await getBandEventsToday(bandId)
+                data = await getBandEventsToday(bandId);
             } else if (filter === "future") {
-                data = await getBandEventsFuture(bandId)
+                data = await getBandEventsFuture(bandId);
             } else if (filter === "past") {
-                data = await getBandEventsPast(bandId)
+                data = await getBandEventsPast(bandId);
             } else {
-                data = await getBandEvents(bandId)
+                data = await getBandEvents(bandId);
             }
 
-            const now = new Date()
+            const now = new Date();
 
             if (filter === "past") {
-                data.sort((a, b) => new Date(b.startingTime) - new Date(a.startingTime))
+                data.sort((a, b) => new Date(b.startingTime) - new Date(a.startingTime));
             } else if (filter === "future" || filter === "now") {
-                data.sort((a, b) => new Date(a.startingTime) - new Date(b.startingTime))
+                data.sort((a, b) => new Date(a.startingTime) - new Date(b.startingTime));
             } else {
                 data.sort((a, b) => {
-                    const aStart = new Date(a.startingTime)
-                    const bStart = new Date(b.startingTime)
+                    const aStart = new Date(a.startingTime);
+                    const bStart = new Date(b.startingTime);
 
-                    const aEnded = new Date(a.endingTime) < now
-                    const bEnded = new Date(b.endingTime) < now
+                    const aEnded = new Date(a.endingTime) < now;
+                    const bEnded = new Date(b.endingTime) < now;
 
-                    const aIsToday = aStart <= now && new Date(a.endingTime) >= now
-                    const bIsToday = bStart <= now && new Date(b.endingTime) >= now
+                    const aIsToday = aStart <= now && new Date(a.endingTime) >= now;
+                    const bIsToday = bStart <= now && new Date(b.endingTime) >= now;
 
-                    if (aIsToday && !bIsToday) return -1
-                    if (!aIsToday && bIsToday) return 1
+                    if (aIsToday && !bIsToday) return -1;
+                    if (!aIsToday && bIsToday) return 1;
 
-                    if (!aEnded && bEnded) return -1
-                    if (aEnded && !bEnded) return 1
+                    if (!aEnded && bEnded) return -1;
+                    if (aEnded && !bEnded) return 1;
 
-                    if (!aEnded && !bEnded)
-                        return aStart - bStart
+                    if (!aEnded && !bEnded) return aStart - bStart;
 
-                    return bStart - aStart
-                })
+                    return bStart - aStart;
+                });
             }
 
-            setEvents(data)
+            setEvents(data);
 
         } catch (err) {
-            console.error(err)
-            toast.error("Erro ao carregar eventos.")
+            console.error(err);
+            toast.error("Erro ao carregar eventos.");
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
     }
 
+    // Rodar ao carregar
     useEffect(() => {
         async function run() {
-            await autoImportHolyricsOncePerDay()
-            await loadEvents()
+            await autoImportHolyricsOncePerDay();
+            await loadEvents();
         }
-        run()
-    }, [bandId, filter])
+        run();
+    }, [bandId, filter]);
 
+    // -----------------------------------------------------
+    // LOAD INTEGRANTS + ROLES
+    // -----------------------------------------------------
+    useEffect(() => {
+        async function loadAux() {
+            try {
+                const integrants = await getBandIntegrants(bandId);
+                const roles = await getRoles();   // ⭐ PAPÉIS DA TABELA ROLE
 
+                setAllIntegrants(integrants);
+                setAllRoles(roles);
+
+            } catch (err) {
+                console.error("Erro ao carregar integrants/roles:", err);
+            }
+        }
+
+        if (bandId) loadAux();
+    }, [bandId]);
+
+    // -----------------------------------------------------
+    // VIEW DETAILS
+    // -----------------------------------------------------
     async function handleOpenDetails(eventId) {
         try {
-            const data = await getEventById(eventId)
-            setSelectedEvent(data)
+            const data = await getEventById(eventId);
+            setSelectedEvent(data);
         } catch {
-            toast.error("Erro ao carregar detalhes do evento.")
+            toast.error("Erro ao carregar detalhes do evento.");
         }
     }
 
+    // -----------------------------------------------------
+    // CREATE / EDIT EVENT
+    // -----------------------------------------------------
     function handleOpenCreate() {
-        setEditingEvent(null)
-        setFormOpen(true)
+        setEditingEvent(null);
+        setFormOpen(true);
     }
 
     function handleOpenEdit() {
-        if (!selectedEvent) return
-        setEditingEvent(selectedEvent)
-        setFormOpen(true)
+        if (!selectedEvent) return;
+        setEditingEvent(selectedEvent);
+        setFormOpen(true);
     }
 
     async function handleSubmitForm(formData) {
         try {
             if (editingEvent) {
-                await updateEvent(editingEvent.id, formData)
-                toast.success("Evento atualizado!")
+                await updateEvent(editingEvent.id, formData);
+                toast.success("Evento atualizado!");
             } else {
-                await createEvent(bandId, formData)
-                toast.success("Evento criado!")
+                await createEvent(bandId, formData);
+                toast.success("Evento criado!");
             }
 
-            setFormOpen(false)
-            setEditingEvent(null)
-            setSelectedEvent(null)
+            setFormOpen(false);
+            setEditingEvent(null);
+            setSelectedEvent(null);
 
-            await loadEvents()
+            await loadEvents();
 
         } catch {
-            toast.error("Erro ao salvar evento.")
+            toast.error("Erro ao salvar evento.");
         }
     }
 
+    // -----------------------------------------------------
+    // DELETE
+    // -----------------------------------------------------
     async function handleConfirmDelete() {
         try {
-            await deleteEvent(eventToDelete.id)
-            toast.success("Evento excluído!")
+            await deleteEvent(eventToDelete.id);
+            toast.success("Evento excluído!");
 
-            setEventToDelete(null)
-            setSelectedEvent(null)
+            setEventToDelete(null);
+            setSelectedEvent(null);
 
-            await loadEvents()
+            await loadEvents();
 
         } catch {
-            toast.error("Erro ao excluir evento.")
+            toast.error("Erro ao excluir evento.");
         }
     }
 
+    // -----------------------------------------------------
+    // ESCALAÇÃO
+    // -----------------------------------------------------
+    function handleOpenEscalation(ev) {
+        setEscalationEvent(ev);
+        setOpenEscalation(true);
+    }
+
+    // -----------------------------------------------------
+    // RENDER
+    // -----------------------------------------------------
     return (
         <div className="space-y-6">
 
@@ -205,17 +260,12 @@ export default function Events() {
                 </Button>
             </div>
 
-            <EventFilterBar
-                current={filter}
-                onChange={setFilter}
-            />
+            <EventFilterBar current={filter} onChange={setFilter} />
 
             {loading ? (
                 <p className="text-gray-400 text-sm">Carregando eventos…</p>
             ) : events.length === 0 ? (
-                <p className="text-gray-400 text-sm">
-                    Nenhum evento encontrado.
-                </p>
+                <p className="text-gray-400 text-sm">Nenhum evento encontrado.</p>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {events.map(ev => (
@@ -235,11 +285,12 @@ export default function Events() {
                 onClose={() => setSelectedEvent(null)}
                 onEdit={handleOpenEdit}
                 onDelete={() => setEventToDelete(selectedEvent)}
+                onEscalation={handleOpenEscalation}
                 onUpdated={(changes) => {
                     if (selectedEvent) {
-                        updateEventInList(selectedEvent.id, changes)
+                        updateEventInList(selectedEvent.id, changes);
                     }
-                    loadEvents()
+                    loadEvents();
                 }}
             />
 
@@ -247,8 +298,8 @@ export default function Events() {
                 open={formOpen}
                 event={editingEvent}
                 onClose={() => {
-                    setFormOpen(false)
-                    setEditingEvent(null)
+                    setFormOpen(false);
+                    setEditingEvent(null);
                 }}
                 onSubmit={handleSubmitForm}
             />
@@ -256,15 +307,21 @@ export default function Events() {
             <ConfirmDialog
                 open={!!eventToDelete}
                 title="Excluir evento"
-                message={
-                    eventToDelete
-                        ? `Deseja excluir o evento "${eventToDelete.name}"?`
-                        : ""
-                }
+                message={eventToDelete ? `Deseja excluir o evento "${eventToDelete.name}"?` : ""}
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setEventToDelete(null)}
             />
 
+            {/* ⭐ ESCALAÇÃO */}
+            <EventEscalationModal
+                open={openEscalation}
+                event={escalationEvent}
+                onClose={() => setOpenEscalation(false)}
+                allIntegrants={allIntegrants}
+                allRoles={allRoles}     // ⭐ CORRIGIDO
+                onUpdated={() => loadEvents()}
+            />
+
         </div>
-    )
+    );
 }
