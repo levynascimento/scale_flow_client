@@ -14,15 +14,16 @@ import RepertoireEdit from "./pages/repertoires/RepertoireEdit.jsx";
 import BandLayout from "./components/layout/BandLayout.jsx";
 import Events from './pages/events/Events.jsx'
 import Lineups from './pages/lineups/Lineups.jsx'
-
-
-
-// IMPORTS DAS NOVAS TELAS DE ROLES
-import Roles from "./pages/roles/Roles.jsx";
+import Roles from "./pages/roles/Roles.jsx"
+import Holyrics from "./pages/holyrics/Holyrics.jsx";
+import HolyricsCredentials from "./pages/holyrics/HolyricsCredentials.jsx";
+import HolyricsMusics from "./pages/holyrics/HolyricsMusics.jsx";
+import HolyricsEvents from "./pages/holyrics/HolyricsEvents.jsx";
 
 export default function App() {
     return (
         <Routes>
+
             {/* público */}
             <Route path="/" element={<Navigate to="/auth/login" replace />} />
             <Route path="/auth/login" element={<Login />} />
@@ -46,7 +47,6 @@ export default function App() {
                     </ProtectedRoute>
                 }
             >
-                {/* páginas existentes */}
                 <Route path="home" element={<BandHome />} />
                 <Route path="repertoires" element={<Repertoires />} />
                 <Route path="repertoires/new" element={<RepertoireForm />} />
@@ -54,10 +54,12 @@ export default function App() {
                 <Route path="events" element={<Events />} />
                 <Route path="roles" element={<Roles />} />
                 <Route path="lineups" element={<Lineups />} />
-
+                <Route path="holyrics" element={<Holyrics />} />
+                <Route path="holyrics/credentials" element={<HolyricsCredentials />} />
+                <Route path="holyrics/musics" element={<HolyricsMusics />} />
+                <Route path="holyrics/events" element={<HolyricsEvents />} />
             </Route>
 
-            {/* fallback */}
             <Route path="*" element={<Navigate to="/bands/select" replace />} />
         </Routes>
     )
