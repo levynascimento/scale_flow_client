@@ -4,7 +4,8 @@ import {
     getEventMusics,
     getEventSuggestions,
     acceptSuggestion,
-    deleteSuggestion
+    deleteSuggestion,
+    removeMusicFromEvent
 } from "../../services/eventApi";
 import SelectMusicModal from "./components/SelectMusicModal";
 import toast from "react-hot-toast";
@@ -86,6 +87,24 @@ export default function EventViewModal({
         } catch {}
     }
 
+    async function handleRemoveMusic(musicId) {
+        try {
+            await removeMusicFromEvent(event.id, musicId);
+
+            toast.success("Música removida!");
+
+            await loadData();
+
+            onUpdated?.({
+                chosenMusicsCount: musics.length - 1
+            });
+
+        } catch (err) {
+            toast.error("Erro ao remover música.");
+            console.error(err);
+        }
+    }
+
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-start overflow-y-auto z-[9999] py-10">
             <div className="bg-[#1a1a1e] border border-[#2a2a30] rounded-2xl p-8 w-[90%] max-w-3xl text-gray-200 shadow-xl">
@@ -108,29 +127,25 @@ export default function EventViewModal({
                         )}
                     </div>
 
-                    {/* BOTÕES ADMIN */}
                     {isAdmin && (
                         <div className="flex gap-2">
 
-                            {/* EDITAR — Fecha o modal antes de abrir o form */}
+                            {/* EDITAR — fecha o modal e abre o form */}
                             <Button
                                 className="bg-[#7c5fff] hover:bg-[#6a4ee8] px-4 py-2 flex items-center gap-2"
                                 onClick={() => {
-                                    onClose?.();     // fecha o EventViewModal
-                                    onEdit?.(event); // abre o EventFormModal
+                                    onClose?.();
+                                    onEdit?.(event);
                                 }}
                             >
                                 <Pencil size={16} />
                                 Editar
                             </Button>
 
-                            {/* EXCLUIR — NÃO fecha o modal */}
+                            {/* EXCLUIR — mantém o modal aberto (ConfirmDialog aparece por cima) */}
                             <Button
                                 className="bg-red-600/80 hover:bg-red-600 px-4 py-2 flex items-center gap-2"
-                                onClick={() => {
-                                    // Não fecha o modal — o ConfirmDialog deve aparecer sobre ele
-                                    onDelete?.(event);
-                                }}
+                                onClick={() => onDelete?.(event)}
                             >
                                 <Trash2 size={16} />
                                 Excluir
@@ -153,7 +168,7 @@ export default function EventViewModal({
                     </span>
                 </div>
 
-                {/* BOTÃO ESCALAÇÃO */}
+                {/* GERENCIAR ESCALAÇÃO */}
                 <Button
                     className="w-full bg-[#2d2d34] hover:bg-[#3a3a42] mb-8 flex items-center justify-center gap-2"
                     onClick={() => onEscalation?.(event)}
@@ -170,9 +185,23 @@ export default function EventViewModal({
                 ) : (
                     <div className="space-y-3 mb-6">
                         {musics.map(m => (
-                            <div key={m.id} className="p-4 bg-[#111118] border border-[#2a2a30] rounded-xl">
-                                <p className="text-lg font-medium">{m.title}</p>
-                                <p className="text-gray-400 text-sm">{m.artist}</p>
+                            <div
+                                key={m.id}
+                                className="p-4 bg-[#111118] border border-[#2a2a30] rounded-xl flex justify-between items-center"
+                            >
+                                <div>
+                                    <p className="text-lg font-medium">{m.title}</p>
+                                    <p className="text-gray-400 text-sm">{m.artist}</p>
+                                </div>
+
+                                {isAdmin && (
+                                    <button
+                                        className="text-red-400 hover:text-red-300 text-sm px-3 py-1"
+                                        onClick={() => handleRemoveMusic(m.id)}
+                                    >
+                                        Remover
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -195,7 +224,10 @@ export default function EventViewModal({
                 ) : (
                     <div className="space-y-4 mb-6">
                         {suggestions.map(s => (
-                            <div key={s.id} className="p-4 bg-[#111118] border border-[#2a2a30] rounded-xl">
+                            <div
+                                key={s.id}
+                                className="p-4 bg-[#111118] border border-[#2a2a30] rounded-xl"
+                            >
                                 <p className="text-lg font-medium">{s.music.title}</p>
                                 <p className="text-gray-400 text-sm">{s.music.artist}</p>
 
@@ -233,7 +265,7 @@ export default function EventViewModal({
                 </div>
             </div>
 
-            {/* MODAIS */}
+            {/* MODAIS DE ADIÇÃO */}
             <SelectMusicModal
                 open={openAddModal}
                 eventId={event.id}
