@@ -3,17 +3,23 @@ import Button from "../../components/Button";
 import {
     getEventMusics,
     getEventSuggestions,
-    addMusicToEvent,
-    createSuggestion,
     acceptSuggestion,
     deleteSuggestion
 } from "../../services/eventApi";
 import SelectMusicModal from "./components/SelectMusicModal";
 import toast from "react-hot-toast";
-import { Users } from "lucide-react"; // ⬅ botão de escalação
+import { Users, Pencil, Trash2 } from "lucide-react";
 
-export default function EventViewModal({ open, event, onClose, isAdmin, onUpdated, onEscalation }) {
-
+export default function EventViewModal({
+                                           open,
+                                           event,
+                                           onClose,
+                                           isAdmin,
+                                           onUpdated,
+                                           onEscalation,
+                                           onEdit,
+                                           onDelete
+                                       }) {
     const [musics, setMusics] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -21,9 +27,6 @@ export default function EventViewModal({ open, event, onClose, isAdmin, onUpdate
     const [openAddModal, setOpenAddModal] = useState(false);
     const [openSuggestModal, setOpenSuggestModal] = useState(false);
 
-    // ===============================
-    // Carregar músicas e sugestões
-    // ===============================
     async function loadData() {
         if (!event) return;
 
@@ -53,103 +56,113 @@ export default function EventViewModal({ open, event, onClose, isAdmin, onUpdate
 
     if (!open || !event) return null;
 
-    // ===============================
-    // Aceitar sugestão
-    // ===============================
     async function handleAccept(id) {
         try {
             await acceptSuggestion(id);
             toast.success("Sugestão aceita!");
-
             await loadData();
             onUpdated?.();
-
-        } catch (err) {
-            console.error(err);
-            toast.error("Erro ao aceitar.");
+        } catch {
+            toast.error("Erro ao aceitar sugestão.");
         }
     }
 
-    // ===============================
-    // Rejeitar sugestão
-    // ===============================
     async function handleReject(id) {
         try {
             await deleteSuggestion(id);
             toast.success("Sugestão removida.");
-
             await loadData();
             onUpdated?.();
-
-        } catch (err) {
-            console.error(err);
+        } catch {
             toast.error("Erro ao remover sugestão.");
         }
     }
 
-    // ===============================
-    // Quando MEMBER envia uma sugestão
-    // ===============================
     async function handleSuggestionAdded() {
         try {
             const updated = await getEventSuggestions(event.id);
-
             setSuggestions(updated);
-
             onUpdated?.({ suggestionsCount: updated.length });
-
-        } catch (err) {
-            console.error(err);
-        }
+        } catch {}
     }
 
-    // ===============================
-    // COMPONENTE
-    // ===============================
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-start overflow-y-auto z-[9999] py-10">
             <div className="bg-[#1a1a1e] border border-[#2a2a30] rounded-2xl p-8 w-[90%] max-w-3xl text-gray-200 shadow-xl">
 
-                {/* TÍTULO */}
-                <h1 className="text-3xl font-bold mb-1">{event.name}</h1>
-                <p className="text-gray-400 mb-4">
-                    {new Date(event.startingTime).toLocaleString("pt-BR")}
-                    {" → "}
-                    {new Date(event.endingTime).toLocaleString("pt-BR")}
-                </p>
+                {/* HEADER */}
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <h1 className="text-3xl font-bold">{event.name}</h1>
+
+                        <p className="text-gray-400">
+                            {new Date(event.startingTime).toLocaleString("pt-BR")}
+                            {" → "}
+                            {new Date(event.endingTime).toLocaleString("pt-BR")}
+                        </p>
+
+                        {event.lineupName && (
+                            <p className="text-gray-300 mt-1">
+                                Formação: <strong>{event.lineupName}</strong>
+                            </p>
+                        )}
+                    </div>
+
+                    {/* BOTÕES ADMIN */}
+                    {isAdmin && (
+                        <div className="flex gap-2">
+
+                            {/* EDITAR — Fecha o modal antes de abrir o form */}
+                            <Button
+                                className="bg-[#7c5fff] hover:bg-[#6a4ee8] px-4 py-2 flex items-center gap-2"
+                                onClick={() => {
+                                    onClose?.();     // fecha o EventViewModal
+                                    onEdit?.(event); // abre o EventFormModal
+                                }}
+                            >
+                                <Pencil size={16} />
+                                Editar
+                            </Button>
+
+                            {/* EXCLUIR — NÃO fecha o modal */}
+                            <Button
+                                className="bg-red-600/80 hover:bg-red-600 px-4 py-2 flex items-center gap-2"
+                                onClick={() => {
+                                    // Não fecha o modal — o ConfirmDialog deve aparecer sobre ele
+                                    onDelete?.(event);
+                                }}
+                            >
+                                <Trash2 size={16} />
+                                Excluir
+                            </Button>
+
+                        </div>
+                    )}
+                </div>
 
                 {/* BADGES */}
                 <div className="flex gap-3 mb-6">
-
-                    {/* ⬅ Escalações - usando event.escalationsCount */}
                     <span className="px-3 py-1 rounded-full bg-black/20 border border-black/40 text-sm">
                         Escalações: {event.escalationsCount ?? 0}
                     </span>
-
                     <span className="px-3 py-1 rounded-full bg-black/20 border border-black/40 text-sm">
                         Sugestões: {suggestions.length}
                     </span>
-
                     <span className="px-3 py-1 rounded-full bg-black/20 border border-black/40 text-sm">
                         Músicas escolhidas: {musics.length}
                     </span>
                 </div>
 
-                {/* BOTÃO → GERENCIAR ESCALAÇÃO */}
+                {/* BOTÃO ESCALAÇÃO */}
                 <Button
                     className="w-full bg-[#2d2d34] hover:bg-[#3a3a42] mb-8 flex items-center justify-center gap-2"
-                    onClick={() => {
-                        // chama o modal de escalação no Events.jsx
-                        onEscalation?.(event);
-                    }}
+                    onClick={() => onEscalation?.(event)}
                 >
                     <Users size={18} />
                     Gerenciar Escalação
                 </Button>
 
-                {/* =============================== */}
-                {/* MÚSICAS DO EVENTO */}
-                {/* =============================== */}
+                {/* MÚSICAS */}
                 <h2 className="text-2xl font-semibold mb-3">Músicas do Evento</h2>
 
                 {musics.length === 0 ? (
@@ -165,7 +178,6 @@ export default function EventViewModal({ open, event, onClose, isAdmin, onUpdate
                     </div>
                 )}
 
-                {/* BOTÃO ADMIN → ADICIONAR */}
                 {isAdmin && (
                     <Button
                         className="w-full bg-[#7c5fff] hover:bg-[#6a4ee8] mb-8"
@@ -175,9 +187,7 @@ export default function EventViewModal({ open, event, onClose, isAdmin, onUpdate
                     </Button>
                 )}
 
-                {/* =============================== */}
                 {/* SUGESTÕES */}
-                {/* =============================== */}
                 <h2 className="text-2xl font-semibold mb-3">Sugestões enviadas</h2>
 
                 {suggestions.length === 0 ? (
@@ -215,16 +225,6 @@ export default function EventViewModal({ open, event, onClose, isAdmin, onUpdate
                     </div>
                 )}
 
-                {/* BOTÃO MEMBER → SUGERIR */}
-                {!isAdmin && (
-                    <Button
-                        className="w-full bg-[#7c5fff] hover:bg-[#6a4ee8] mb-8"
-                        onClick={() => setOpenSuggestModal(true)}
-                    >
-                        Sugerir Música
-                    </Button>
-                )}
-
                 {/* FECHAR */}
                 <div className="flex justify-start mt-2">
                     <Button variant="outline" onClick={onClose}>
@@ -233,7 +233,7 @@ export default function EventViewModal({ open, event, onClose, isAdmin, onUpdate
                 </div>
             </div>
 
-            {/* MODAL ADMIN → ADICIONAR MÚSICA */}
+            {/* MODAIS */}
             <SelectMusicModal
                 open={openAddModal}
                 eventId={event.id}
@@ -246,7 +246,6 @@ export default function EventViewModal({ open, event, onClose, isAdmin, onUpdate
                 onResetSearch={true}
             />
 
-            {/* MODAL MEMBER → SUGERIR MÚSICA */}
             <SelectMusicModal
                 open={openSuggestModal}
                 eventId={event.id}
