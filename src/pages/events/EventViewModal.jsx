@@ -90,7 +90,6 @@ export default function EventViewModal({
     async function handleRemoveMusic(musicId) {
         try {
             await removeMusicFromEvent(event.id, musicId);
-
             toast.success("Música removida!");
 
             await loadData();
@@ -98,7 +97,6 @@ export default function EventViewModal({
             onUpdated?.({
                 chosenMusicsCount: musics.length - 1
             });
-
         } catch (err) {
             toast.error("Erro ao remover música.");
             console.error(err);
@@ -130,7 +128,7 @@ export default function EventViewModal({
                     {isAdmin && (
                         <div className="flex gap-2">
 
-                            {/* EDITAR — fecha o modal e abre o form */}
+                            {/* EDITAR — FECHA O MODAL */}
                             <Button
                                 className="bg-[#7c5fff] hover:bg-[#6a4ee8] px-4 py-2 flex items-center gap-2"
                                 onClick={() => {
@@ -142,7 +140,7 @@ export default function EventViewModal({
                                 Editar
                             </Button>
 
-                            {/* EXCLUIR — mantém o modal aberto (ConfirmDialog aparece por cima) */}
+                            {/* EXCLUIR — NÃO FECHA O MODAL */}
                             <Button
                                 className="bg-red-600/80 hover:bg-red-600 px-4 py-2 flex items-center gap-2"
                                 onClick={() => onDelete?.(event)}
@@ -207,12 +205,23 @@ export default function EventViewModal({
                     </div>
                 )}
 
+                {/* BOTÃO ADICIONAR MÚSICA (ADMIN) */}
                 {isAdmin && (
                     <Button
                         className="w-full bg-[#7c5fff] hover:bg-[#6a4ee8] mb-8"
                         onClick={() => setOpenAddModal(true)}
                     >
                         + Adicionar Música
+                    </Button>
+                )}
+
+                {/* BOTÃO SUGERIR MÚSICA (MEMBER) */}
+                {!isAdmin && (
+                    <Button
+                        className="w-full bg-[#4c4cff] hover:bg-[#3a3ad9] mb-8"
+                        onClick={() => setOpenSuggestModal(true)}
+                    >
+                        + Sugerir Música
                     </Button>
                 )}
 
@@ -265,7 +274,7 @@ export default function EventViewModal({
                 </div>
             </div>
 
-            {/* MODAIS DE ADIÇÃO */}
+            {/* MODAIS DE ADIÇÃO / SUGESTÃO */}
             <SelectMusicModal
                 open={openAddModal}
                 eventId={event.id}
