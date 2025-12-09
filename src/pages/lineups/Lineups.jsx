@@ -115,7 +115,7 @@ export default function Lineups() {
                                 {lineup.name}
                             </h2>
                             <p className="text-xs text-gray-500 mt-1">
-                                {(lineup.roles?.length ?? 0)} papel(es)
+                                {(lineup.roles?.length ?? 0)} papel(éis)
                             </p>
                         </div>
                     ))}
