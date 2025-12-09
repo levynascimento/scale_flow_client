@@ -11,14 +11,19 @@ import BandHome from './pages/bands/BandHome.jsx'
 import Repertoires from './pages/repertoires/Repertoires.jsx'
 import RepertoireForm from './pages/repertoires/RepertoireForm.jsx'
 import RepertoireEdit from "./pages/repertoires/RepertoireEdit.jsx";
+
 import BandLayout from "./components/layout/BandLayout.jsx";
 import Events from './pages/events/Events.jsx'
 import Lineups from './pages/lineups/Lineups.jsx'
 import Roles from "./pages/roles/Roles.jsx"
+
 import Holyrics from "./pages/holyrics/Holyrics.jsx";
 import HolyricsCredentials from "./pages/holyrics/HolyricsCredentials.jsx";
 import HolyricsMusics from "./pages/holyrics/HolyricsMusics.jsx";
 import HolyricsEvents from "./pages/holyrics/HolyricsEvents.jsx";
+
+import UserSettings from "./pages/users/UserSettings.jsx";
+import BandSettings from "./pages/bands/BandSettings.jsx";
 
 export default function App() {
     return (
@@ -29,7 +34,17 @@ export default function App() {
             <Route path="/auth/login" element={<Login />} />
             <Route path="/auth/register" element={<Register />} />
 
-            {/* área protegida */}
+            {/* CONFIGURAÇÕES DO USUÁRIO */}
+            <Route
+                path="/user/settings"
+                element={
+                    <ProtectedRoute>
+                        <UserSettings />
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* seleção de bandas */}
             <Route
                 path="/bands/select"
                 element={
@@ -39,6 +54,7 @@ export default function App() {
                 }
             />
 
+            {/* layout da banda */}
             <Route
                 path="/bands/:id"
                 element={
@@ -47,13 +63,20 @@ export default function App() {
                     </ProtectedRoute>
                 }
             >
+
                 <Route path="home" element={<BandHome />} />
                 <Route path="repertoires" element={<Repertoires />} />
                 <Route path="repertoires/new" element={<RepertoireForm />} />
                 <Route path="repertoires/:musicId/edit" element={<RepertoireEdit />} />
+
                 <Route path="events" element={<Events />} />
                 <Route path="roles" element={<Roles />} />
                 <Route path="lineups" element={<Lineups />} />
+
+                {/* CONFIGURAÇÕES DA BANDA */}
+                <Route path="settings" element={<BandSettings />} />
+
+                {/* Holyrics (Admin only) */}
                 <Route path="holyrics" element={<Holyrics />} />
                 <Route path="holyrics/credentials" element={<HolyricsCredentials />} />
                 <Route path="holyrics/musics" element={<HolyricsMusics />} />
