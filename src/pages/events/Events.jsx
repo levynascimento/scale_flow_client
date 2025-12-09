@@ -10,8 +10,7 @@ import {
     getEventById,
     createEvent,
     updateEvent,
-    deleteEvent,
-    importHolyricsEvents
+    deleteEvent
 } from '../../services/eventApi.js';
 
 import { getBandIntegrants } from '../../services/integrantsApi.js';
@@ -33,7 +32,6 @@ export default function Events() {
     const { id: bandId } = useParams();
 
     const today = new Date().toISOString().slice(0, 10);
-    const importKey = `holyrics_import_${bandId}`;
 
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -59,28 +57,6 @@ export default function Events() {
             )
         );
     }
-
-    // -----------------------------------------------------
-    // AUTO-IMPORT
-    // -----------------------------------------------------
-    async function autoImportHolyricsOncePerDay() {
-        try {
-            const last = localStorage.getItem(importKey);
-            if (last === today) return;
-
-            const now = new Date();
-            const month = now.getMonth() + 1;
-            const year = now.getFullYear();
-            const month_year = Number(`${year}${String(month).padStart(2, "0")}`);
-
-            await importHolyricsEvents(bandId, month, year, month_year);
-            localStorage.setItem(importKey, today);
-
-        } catch (err) {
-            console.error("Erro ao importar eventos do Holyrics:", err);
-        }
-    }
-
     // -----------------------------------------------------
     // LOAD EVENTS
     // -----------------------------------------------------
@@ -142,7 +118,6 @@ export default function Events() {
     // Rodar ao carregar
     useEffect(() => {
         async function run() {
-            await autoImportHolyricsOncePerDay();
             await loadEvents();
         }
         run();

@@ -1,15 +1,39 @@
 import { useEffect, useState } from "react";
-import { getCurrentUser, updateUser, updatePassword, deleteUser } from "../../services/userApi.js";
+import {
+    getCurrentUser,
+    updateUser,
+    updatePassword,
+    deleteUser,
+    getUserHabilities,
+    addUserHability,
+    updateUserHability,
+    deleteUserHability
+} from "../../services/userApi.js";
+import { getRoles } from "../../services/rolesApi";
 import toast from "react-hot-toast";
 import Button from "../../components/Button.jsx";
 import Input from "../../components/Input.jsx";
+import { NavLink } from "react-router-dom";
+import { FiArrowLeft } from "react-icons/fi";
 
 export default function UserSettings() {
+    // PEGAR O ID DA BANDA ATUAL DE FORMA GLOBAL
+    const bandId = localStorage.getItem("bandId");
+
     const [user, setUser] = useState(null);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
+    // --- HABILIDADES ---
+    const [habilities, setHabilities] = useState([]);
+    const [roles, setRoles] = useState([]);
+    const [newRole, setNewRole] = useState("");
+    const [newLevel, setNewLevel] = useState("");
+
+    const [levelInputs, setLevelInputs] = useState({});
+
+    // ------------------------------------------
     useEffect(() => {
         async function load() {
             try {
@@ -17,13 +41,14 @@ export default function UserSettings() {
                 setUser(u);
                 setName(u.name);
                 setEmail(u.email);
-            } catch (err) {
+            } catch {
                 toast.error("Erro ao carregar dados do usuário.");
             }
         }
         load();
     }, []);
 
+    // ------------------------------------------
     async function handleUpdateUser() {
         try {
             await updateUser({ name, email });
@@ -33,6 +58,7 @@ export default function UserSettings() {
         }
     }
 
+    // ------------------------------------------
     async function handleChangePassword() {
         if (!password.trim()) {
             toast.error("A senha não pode ser vazia.");
@@ -48,9 +74,9 @@ export default function UserSettings() {
         }
     }
 
+    // ------------------------------------------
     async function handleDeleteAccount() {
-        const confirmDelete = confirm("Tem certeza que deseja deletar sua conta?");
-        if (!confirmDelete) return;
+        if (!confirm("Tem certeza que deseja deletar sua conta?")) return;
 
         try {
             await deleteUser();
@@ -62,29 +88,132 @@ export default function UserSettings() {
         }
     }
 
+    // =============== HABILIDADES ===============
+    useEffect(() => {
+        async function loadHabilitiesData() {
+            try {
+                const habs = await getUserHabilities();
+                setHabilities(habs);
+
+                const mapped = {};
+                habs.forEach(h => (mapped[h.roleSlug] = h.level.toString()));
+                setLevelInputs(mapped);
+
+                const r = await getRoles();
+                setRoles(r);
+            } catch {
+                toast.error("Erro ao carregar habilidades.");
+            }
+        }
+
+        loadHabilitiesData();
+    }, []);
+
+    // ------------------------------------------
+    async function handleAddHability() {
+        if (!newRole) {
+            toast.error("Selecione um papel.");
+            return;
+        }
+
+        if (newLevel === "") {
+            toast.error("Informe um nível.");
+            return;
+        }
+
+        const parsedLevel = Number(newLevel);
+        if (parsedLevel < 0 || parsedLevel > 10) {
+            toast.error("O nível deve ser entre 0 e 10.");
+            return;
+        }
+
+        if (habilities.some(h => h.roleSlug === newRole)) {
+            toast.error("Você já cadastrou essa habilidade.");
+            return;
+        }
+
+        try {
+            const role = roles.find(r => r.slug === newRole);
+
+            await addUserHability(role.name, parsedLevel);
+            toast.success("Habilidade adicionada!");
+
+            const habs = await getUserHabilities();
+            setHabilities(habs);
+
+            const mapped = {};
+            habs.forEach(h => (mapped[h.roleSlug] = h.level.toString()));
+            setLevelInputs(mapped);
+
+            setNewRole("");
+            setNewLevel("");
+
+        } catch {
+            toast.error("Erro ao adicionar habilidade.");
+        }
+    }
+
+    // ------------------------------------------
+    async function handleUpdate(level, roleSlug) {
+        try {
+            const role = roles.find(r => r.slug === roleSlug);
+
+            await updateUserHability(role.name, level);
+            toast.success("Nível atualizado!");
+        } catch {
+            toast.error("Erro ao atualizar habilidade.");
+        }
+    }
+
+    // ------------------------------------------
+    async function handleDelete(roleSlug) {
+        try {
+            const role = roles.find(r => r.slug === roleSlug);
+            await deleteUserHability(role.name);
+
+            const updated = habilities.filter(h => h.roleSlug !== roleSlug);
+            setHabilities(updated);
+
+            setLevelInputs(prev => {
+                const clone = { ...prev };
+                delete clone[roleSlug];
+                return clone;
+            });
+
+            toast.success("Habilidade removida!");
+        } catch {
+            toast.error("Erro ao remover habilidade.");
+        }
+    }
+
+    // ------------------------------------------
     if (!user) return <div className="p-8 text-gray-300">Carregando...</div>;
 
+    // ------------------------------------------
     return (
         <div className="p-8 space-y-10">
+
+            {/* BOTÃO DE VOLTAR */}
+            <div className="mb-4">
+                <NavLink
+                    to={`/bands/${bandId}/home`}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl
+                               bg-sf-surface border border-sf-border text-sf-foreground
+                               hover:bg-sf-surface/80 transition-colors"
+                >
+                    <FiArrowLeft size={18} />
+                    <span>Voltar</span>
+                </NavLink>
+            </div>
 
             <h1 className="text-3xl font-bold">Configurações da Conta</h1>
 
             {/* DADOS DO USUÁRIO */}
             <div className="bg-sf-card p-6 rounded-xl border border-sf-border space-y-4">
-
                 <h2 className="text-xl font-semibold">Dados do Usuário</h2>
 
-                <Input
-                    label="Nome"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                />
-
-                <Input
-                    label="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                />
+                <Input label="Nome" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
 
                 <Button className="mt-2 bg-sf-primary hover:bg-sf-primary/80" onClick={handleUpdateUser}>
                     Salvar Alterações
@@ -93,7 +222,6 @@ export default function UserSettings() {
 
             {/* SENHA */}
             <div className="bg-sf-card p-6 rounded-xl border border-sf-border space-y-4">
-
                 <h2 className="text-xl font-semibold">Alterar Senha</h2>
 
                 <Input
@@ -106,6 +234,126 @@ export default function UserSettings() {
                 <Button className="mt-2 bg-blue-600 hover:bg-blue-700" onClick={handleChangePassword}>
                     Atualizar Senha
                 </Button>
+            </div>
+
+            {/* HABILIDADES */}
+            <div className="bg-sf-card p-6 rounded-xl border border-sf-border space-y-4">
+
+                <h2 className="text-xl font-semibold">Minhas Habilidades</h2>
+
+                <div className="space-y-4">
+                    {habilities.length === 0 && (
+                        <p className="text-gray-400">Você ainda não cadastrou habilidades.</p>
+                    )}
+
+                    {habilities.map(h => (
+                        <div
+                            key={h.id}
+                            className="p-4 rounded-lg bg-sf-surface border border-sf-border flex items-center justify-between"
+                        >
+                            <div className="space-y-2">
+                                <p className="font-semibold capitalize">{h.roleSlug}</p>
+
+                                <Input
+                                    label="Nível"
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="w-24"
+                                    value={levelInputs[h.roleSlug] ?? ""}
+                                    onChange={(e) => {
+                                        let val = e.target.value;
+
+                                        if (val === "") {
+                                            setLevelInputs(prev => ({ ...prev, [h.roleSlug]: "" }));
+                                            return;
+                                        }
+
+                                        if (/^\d{1,2}$/.test(val)) {
+                                            setLevelInputs(prev => ({ ...prev, [h.roleSlug]: val }));
+                                        }
+                                    }}
+                                    onBlur={() => {
+                                        const raw = levelInputs[h.roleSlug];
+                                        if (raw === "") {
+                                            setLevelInputs(prev => ({ ...prev, [h.roleSlug]: h.level.toString() }));
+                                            return;
+                                        }
+
+                                        const nivel = Number(raw);
+                                        if (nivel < 0 || nivel > 10) {
+                                            toast.error("Informe um nível válido (0 a 10).");
+                                            setLevelInputs(prev => ({ ...prev, [h.roleSlug]: h.level.toString() }));
+                                            return;
+                                        }
+
+                                        handleUpdate(nivel, h.roleSlug);
+                                    }}
+                                />
+                            </div>
+
+                            <Button
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={() => handleDelete(h.roleSlug)}
+                            >
+                                Remover
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+
+                {/* ADICIONAR NOVA */}
+                <div className="pt-4 border-t border-sf-border">
+                    <h3 className="text-lg font-semibold mb-2">Adicionar nova habilidade</h3>
+
+                    <div className="flex gap-4 items-end">
+
+                        {/* SELECT PAPEL */}
+                        <div className="flex-1">
+                            <label className="text-sm text-sf-muted mb-2 block">Papel</label>
+                            <select
+                                value={newRole}
+                                onChange={(e) => setNewRole(e.target.value)}
+                                className="w-full rounded-xl border border-sf-border bg-sf-card px-4 py-3 text-sf-foreground outline-none
+                                    focus:ring-2 focus:ring-sf-primary/60"
+                            >
+                                <option value="">Selecione...</option>
+                                {roles.map(r => (
+                                    <option key={r.id} value={r.slug}>
+                                        {r.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* INPUT DE NÍVEL */}
+                        <Input
+                            label="Nível"
+                            type="text"
+                            inputMode="numeric"
+                            className="w-24"
+                            value={newLevel}
+                            onChange={(e) => {
+                                const v = e.target.value;
+
+                                if (v === "") {
+                                    setNewLevel("");
+                                    return;
+                                }
+
+                                if (/^\d{1,2}$/.test(v)) {
+                                    setNewLevel(v);
+                                }
+                            }}
+                        />
+
+                        <Button
+                            className="bg-sf-primary hover:bg-sf-primary/80"
+                            onClick={handleAddHability}
+                        >
+                            Adicionar
+                        </Button>
+                    </div>
+                </div>
             </div>
 
             {/* ZONA DE PERIGO */}

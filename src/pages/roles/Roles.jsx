@@ -25,7 +25,6 @@ export default function Roles() {
             setLoading(true);
             const data = await getRoles();
 
-            // 🔥 Ordena alfabeticamente para manter a lista estável
             const sorted = (data || []).sort((a, b) =>
                 a.name.localeCompare(b.name)
             );
@@ -37,7 +36,6 @@ export default function Roles() {
             setLoading(false);
         }
     }
-
 
     function handleOpenCreate() {
         setEditingRole(null);
@@ -114,15 +112,17 @@ export default function Roles() {
                             </div>
 
                             <div className="flex gap-3">
+                                {/* EDITAR → Cor roxa */}
                                 <Button
-                                    variant="outline"
+                                    className="bg-indigo-600 hover:bg-indigo-500"
                                     onClick={() => handleOpenEdit(role)}
                                 >
                                     Editar
                                 </Button>
 
+                                {/* REMOVER → Cor vermelha + ConfirmDialog */}
                                 <Button
-                                    intent="danger"
+                                    className="bg-red-600 hover:bg-red-500"
                                     onClick={() => setDeleteTarget(role)}
                                 >
                                     Remover
@@ -168,7 +168,7 @@ export default function Roles() {
                 editingRole={editingRole}
             />
 
-            {/* Modal de confirmação de exclusão */}
+            {/* ConfirmDialog ao remover */}
             <ConfirmDialog
                 open={!!deleteTarget}
                 title="Excluir papel"

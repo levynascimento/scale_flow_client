@@ -114,9 +114,11 @@ export default function BandLayout() {
                         <Users size={18} /> {!collapsed && "Papéis"}
                     </NavLink>
 
-                    <NavLink to={`/bands/${id}/lineups`} className={({ isActive }) => baseItem(isActive)}>
-                        <Layers size={18} /> {!collapsed && "Formações"}
-                    </NavLink>
+                    {isAdmin && (
+                        <NavLink to={`/bands/${id}/lineups`} className={({ isActive }) => baseItem(isActive)}>
+                            <Layers size={18} /> {!collapsed && "Formações"}
+                        </NavLink>
+                    )}
 
                     {isAdmin && (
                         <NavLink to={`/bands/${id}/holyrics`} className={({ isActive }) => baseItem(isActive)}>

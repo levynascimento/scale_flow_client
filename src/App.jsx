@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import RequireAdmin from './components/RequireAdmin.jsx'
 
 import Login from './pages/auth/Login.jsx'
 import Register from './pages/auth/Register.jsx'
@@ -63,7 +64,6 @@ export default function App() {
                     </ProtectedRoute>
                 }
             >
-
                 <Route path="home" element={<BandHome />} />
                 <Route path="repertoires" element={<Repertoires />} />
                 <Route path="repertoires/new" element={<RepertoireForm />} />
@@ -71,16 +71,60 @@ export default function App() {
 
                 <Route path="events" element={<Events />} />
                 <Route path="roles" element={<Roles />} />
-                <Route path="lineups" element={<Lineups />} />
 
-                {/* CONFIGURAÇÕES DA BANDA */}
-                <Route path="settings" element={<BandSettings />} />
+                {/* ✅ Lineups só para ADMIN */}
+                <Route
+                    path="lineups"
+                    element={
+                        <RequireAdmin>
+                            <Lineups />
+                        </RequireAdmin>
+                    }
+                />
 
-                {/* Holyrics (Admin only) */}
-                <Route path="holyrics" element={<Holyrics />} />
-                <Route path="holyrics/credentials" element={<HolyricsCredentials />} />
-                <Route path="holyrics/musics" element={<HolyricsMusics />} />
-                <Route path="holyrics/events" element={<HolyricsEvents />} />
+                {/* ✅ Configurações da Banda só para ADMIN */}
+                <Route
+                    path="settings"
+                    element={
+                        <RequireAdmin>
+                            <BandSettings />
+                        </RequireAdmin>
+                    }
+                />
+
+                {/* ✅ Holyrics (tudo só para ADMIN) */}
+                <Route
+                    path="holyrics"
+                    element={
+                        <RequireAdmin>
+                            <Holyrics />
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="holyrics/credentials"
+                    element={
+                        <RequireAdmin>
+                            <HolyricsCredentials />
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="holyrics/musics"
+                    element={
+                        <RequireAdmin>
+                            <HolyricsMusics />
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="holyrics/events"
+                    element={
+                        <RequireAdmin>
+                            <HolyricsEvents />
+                        </RequireAdmin>
+                    }
+                />
             </Route>
 
             <Route path="*" element={<Navigate to="/bands/select" replace />} />
