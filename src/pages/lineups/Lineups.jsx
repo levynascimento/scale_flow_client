@@ -2,15 +2,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import {
-    getLineups,
-    deleteLineup,
-} from "../../services/lineupApi.js";
+import { getLineups, deleteLineup } from "../../services/lineupApi.js";
 import { getRoles } from "../../services/rolesApi.js";
 
 import { Plus } from "lucide-react";
 
-import ConfirmDialog from "../../components/ConfirmDialog";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import LineupCreateModal from "./LineupCreateModal.jsx";
 import LineupDetailsModal from "./LineupDetailsModal.jsx";
 import LineupEditModal from "./LineupEditModal.jsx";
@@ -55,16 +52,14 @@ export default function Lineups() {
     }, [bandId]);
 
     async function handleDeleteLineup(lineup) {
+        if (!lineup) return;
+
         try {
             await deleteLineup(lineup.id);
-
-            // recarrega lista
             await loadData();
 
-            // FECHA MODAL
             setDetailsOpen(false);
             setSelectedLineupId(null);
-
         } catch (err) {
             console.error("Erro ao excluir:", err);
         }
@@ -73,18 +68,19 @@ export default function Lineups() {
     if (loading) {
         return (
             <div className="text-gray-300 text-center p-6">
-                Carregando formações...
+                Carregando formações.
             </div>
         );
     }
 
     return (
         <div className="space-y-6">
-
             {/* HEADER */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-200">Formações</h1>
+                    <h1 className="text-2xl font-semibold text-gray-200">
+                        Formações
+                    </h1>
                     <p className="text-gray-400 text-sm">
                         Monte e gerencie as formações da banda.
                     </p>
@@ -119,7 +115,7 @@ export default function Lineups() {
                                 {lineup.name}
                             </h2>
                             <p className="text-xs text-gray-500 mt-1">
-                                {lineup.roles?.length || 0} papel(es)
+                                {(lineup.roles?.length ?? 0)} papel(es)
                             </p>
                         </div>
                     ))}
@@ -158,7 +154,9 @@ export default function Lineups() {
                     handleDeleteLineup(deleteDialog.lineup);
                     setDeleteDialog({ open: false, lineup: null });
                 }}
-                onCancel={() => setDeleteDialog({ open: false, lineup: null })}
+                onCancel={() =>
+                    setDeleteDialog({ open: false, lineup: null })
+                }
             />
 
             {/* MODAL DE EDIÇÃO */}
@@ -166,10 +164,14 @@ export default function Lineups() {
                 <LineupEditModal
                     open={editOpen}
                     lineupId={selectedLineupId}
-                    allRoles={roles}
                     onClose={() => setEditOpen(false)}
-                    onUpdated={loadData}
+                    onUpdated={() => {
+                        loadData();
+                        setEditOpen(false);
+                        setDetailsOpen(false);
+                    }}
                 />
+
             )}
         </div>
     );

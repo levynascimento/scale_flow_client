@@ -1,138 +1,150 @@
-// src/pages/lineups/LineupDetailsModal.jsx
 import { useEffect, useState } from "react";
-import { getLineup } from "../../services/lineupApi.js";
-
 import { X, Pencil, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
+import { getLineup } from "../../services/lineupApi.js";
 
 export default function LineupDetailsModal({
                                                open,
-                                               lineupId,
                                                onClose,
+                                               lineupId,
                                                onEdit,
                                                onDelete,
                                            }) {
     const [lineup, setLineup] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    const [closing, setClosing] = useState(false);
-
-    function handleAnimatedClose(callback) {
-        setClosing(true);
-
-        setTimeout(() => {
-            setClosing(false);
-            onClose();
-            callback && callback();
-        }, 160);
-    }
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (!open || !lineupId) return;
+
+        let cancelled = false;
 
         async function load() {
             try {
                 setLoading(true);
                 const data = await getLineup(lineupId);
-                setLineup(data);
+                if (!cancelled) {
+                    setLineup(data);
+                }
             } catch (err) {
-                console.error("Erro ao carregar detalhes:", err);
+                console.error(err);
+                toast.error("Erro ao carregar formação");
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         }
 
         load();
+
+        return () => {
+            cancelled = true;
+        };
     }, [open, lineupId]);
 
     if (!open) return null;
 
+    const roles = lineup?.roles ?? [];
+
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
             <div
-                className={`bg-[#1b1b1f] border border-[#2a2a30] rounded-xl p-6 w-[92%] max-w-lg shadow-xl transition-all
-                ${closing ? "animate-fadeOut" : "animate-scaleIn"}`}
+                className="
+                    bg-[#1b1b1f] border border-[#2a2a30] rounded-xl p-6
+                    w-[90%] max-w-lg max-h-[90vh] overflow-y-auto shadow-xl
+                    animate-scaleIn
+                "
             >
-
                 {/* HEADER */}
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-gray-100">
-                        Detalhes da formação
+                    <h2 className="text-xl text-gray-100 font-semibold">
+                        Detalhes da Formação
                     </h2>
 
                     <button
-                        onClick={() => handleAnimatedClose()}
-                        className="text-gray-400 hover:text-white transition"
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-white"
                     >
                         <X size={22} />
                     </button>
                 </div>
 
                 {loading || !lineup ? (
-                    <p className="text-gray-400 text-center py-6">Carregando...</p>
+                    <p className="text-gray-400 text-sm">Carregando...</p>
                 ) : (
                     <>
                         {/* NOME */}
                         <div className="mb-4">
-                            <p className="text-gray-300 text-sm">Nome</p>
-                            <h3 className="text-lg font-semibold text-gray-100">
+                            <p className="text-gray-400 text-sm">
+                                Nome da formação
+                            </p>
+                            <p className="text-gray-100 font-medium text-lg">
                                 {lineup.name}
-                            </h3>
+                            </p>
                         </div>
 
                         {/* PAPÉIS */}
-                        <div className="mb-4">
-                            <p className="text-gray-300 text-sm mb-2">Papéis</p>
-                            {(!lineup.roles || lineup.roles.length === 0) ? (
-                                <p className="text-gray-500">Nenhum papel nesta formação.</p>
-                            ) : (
-                                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                                    {lineup.roles.map((item) => (
-                                        <div
-                                            key={item.id}
-                                            className="bg-[#26262b] border border-[#34343a] rounded-lg px-3 py-2"
-                                        >
-                                            <p className="text-gray-200 font-medium text-sm">
-                                                {item.role.name}
-                                            </p>
-                                            {item.description && (
-                                                <p className="text-gray-400 text-xs">
+                        <div>
+                            <p className="text-gray-300 text-sm mb-2">
+                                Papéis
+                            </p>
+
+                            {roles.length === 0 && (
+                                <p className="text-gray-500 text-sm">
+                                    Nenhum papel cadastrado.
+                                </p>
+                            )}
+
+                            <div className="space-y-3">
+                                {roles.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="bg-[#242428] border border-[#33333a] p-3 rounded-lg"
+                                    >
+                                        <p className="text-gray-200 font-medium">
+                                            {item.role?.name}
+                                        </p>
+
+                                        {item.description &&
+                                            item.description.trim() !==
+                                            "" && (
+                                                <p className="text-gray-400 text-sm mt-1">
                                                     {item.description}
                                                 </p>
                                             )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
 
-                        {/* BOTÕES */}
-                        <div className="flex justify-between mt-6">
+                        {/* AÇÕES */}
+                        <div className="flex justify-between items-center mt-5 gap-2 flex-wrap">
                             <button
                                 onClick={() =>
-                                    handleAnimatedClose(() => onEdit(lineup))
+                                    onDelete && onDelete(lineup)
                                 }
-                                className="flex items-center gap-2 px-4 py-2 bg-sf-primary text-white rounded-lg hover:bg-sf-primary-600 transition"
+                                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
                             >
-                                <Pencil size={18} />
-                                Editar
-                            </button>
-
-                            <button
-                                onClick={() => onDelete(lineup)}
-                                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-                            >
-                                <Trash2 size={18} />
+                                <Trash2 size={16} />
                                 Excluir
                             </button>
-                        </div>
 
-                        <div className="flex justify-center mt-4">
-                            <button
-                                onClick={() => handleAnimatedClose()}
-                                className="px-4 py-2 text-gray-300 hover:text-white transition"
-                            >
-                                Fechar
-                            </button>
+                            <div className="flex gap-2 ml-auto">
+                                <button
+                                    onClick={() =>
+                                        onEdit && onEdit(lineup)
+                                    }
+                                    className="flex items-center gap-2 px-4 py-2 bg-sf-primary hover:bg-sf-primary-600 text-white rounded-lg text-sm"
+                                >
+                                    <Pencil size={16} />
+                                    Editar
+                                </button>
+
+                                <button
+                                    onClick={onClose}
+                                    className="px-4 py-2 text-gray-300 hover:text-white text-sm"
+                                >
+                                    Fechar
+                                </button>
+                            </div>
                         </div>
                     </>
                 )}

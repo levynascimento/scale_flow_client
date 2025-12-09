@@ -1,32 +1,30 @@
-// src/pages/lineups/LineupEditModal.jsx
 import { useEffect, useState } from "react";
+import { X, Trash2, Plus } from "lucide-react";
+import { toast } from "react-toastify";
+
 import {
     getLineup,
     updateLineupName,
     addRoleToLineup,
     updateLineupRole,
-    removeRoleFromLineup
+    removeRoleFromLineup,
 } from "../../services/lineupApi.js";
 import { getRoles } from "../../services/rolesApi.js";
 
-import { toast } from "react-toastify";
-import { X, Trash2 } from "lucide-react";
-
 export default function LineupEditModal({
                                             open,
-                                            lineupId,
                                             onClose,
+                                            lineupId,
                                             onUpdated,
                                         }) {
-
-    const [lineup, setLineup] = useState(null);
+    const [name, setName] = useState("");
     const [allRoles, setAllRoles] = useState([]);
+    const [items, setItems] = useState([]);
+
+    const [newRole, setNewRole] = useState("");
+    const [newDesc, setNewDesc] = useState("");
 
     const [loading, setLoading] = useState(true);
-    const [name, setName] = useState("");
-    const [items, setItems] = useState([]);
-    const [newRoles, setNewRoles] = useState({});
-
     const [closing, setClosing] = useState(false);
 
     function handleAnimatedClose() {
@@ -34,125 +32,131 @@ export default function LineupEditModal({
         setTimeout(() => {
             setClosing(false);
             onClose();
-        }, 160);
+        }, 150);
     }
 
-    /** 🔥 Recarrega apenas este modal */
-    async function reloadModal() {
-        const data = await getLineup(lineupId);
-        setLineup(data);
-        setItems(data.roles);
-    }
-
-    /** 🔥 Carregar dados iniciais */
     useEffect(() => {
         if (!open || !lineupId) return;
+
+        let cancelled = false;
 
         async function load() {
             try {
                 setLoading(true);
 
-                const [lineupData, rolesData] = await Promise.all([
+                const [lineupData, roles] = await Promise.all([
                     getLineup(lineupId),
                     getRoles(),
                 ]);
 
-                setLineup(lineupData);
-                setName(lineupData.name);
-                setItems(lineupData.roles);
-                setAllRoles(rolesData);
-                setNewRoles({});
-            } catch {
-                toast.error("Erro ao carregar dados da formação.");
+                if (cancelled) return;
+
+                setName(lineupData.name || "");
+                setItems(
+                    (lineupData.roles || []).map((item) => ({
+                        id: item.id,
+                        roleId: item.role.id,
+                        roleName: item.role.name,
+                        description: item.description || "",
+                    }))
+                );
+
+                setAllRoles(roles);
+            } catch (err) {
+                console.error(err);
+                toast.error("Erro ao carregar dados da formação");
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         }
 
         load();
+        return () => (cancelled = true);
     }, [open, lineupId]);
 
-    /** 🔥 Atualizar nome da lineup */
-    async function handleSaveName() {
-        try {
-            await updateLineupName(lineupId, { name });
-            toast.success("Nome atualizado!");
+    // ----------------------------
+    // NÃO CHAMA onUpdated aqui
+    // Apenas mexe no estado local
+    // ----------------------------
 
-            await reloadModal();
-            onUpdated(); // atualiza lista lá fora
+    async function handleAddItem() {
+        if (!newRole) return toast.warn("Selecione um papel.");
+
+        try {
+            const created = await addRoleToLineup(lineupId, {
+                roleId: newRole,
+                description: newDesc,
+            });
+
+            setItems((prev) => [
+                ...prev,
+                {
+                    id: created.id,
+                    roleId: created.role.id,
+                    roleName: created.role.name,
+                    description: created.description || "",
+                },
+            ]);
+
+            setNewRole("");
+            setNewDesc("");
+            toast.success("Papel adicionado!");
         } catch {
-            toast.error("Erro ao atualizar nome");
+            toast.error("Erro ao adicionar papel");
         }
     }
 
-    /** 🔥 Atualizar descrição */
-    async function handleUpdateDescription(itemId, description) {
-        try {
-            await updateLineupRole(itemId, { description });
-            toast.success("Descrição salva!");
-
-            await reloadModal();
-            onUpdated();
-        } catch {
-            toast.error("Erro ao salvar descrição");
-        }
-    }
-
-    /** 🔥 Excluir papel */
     async function handleRemoveItem(itemId) {
         try {
             await removeRoleFromLineup(itemId);
+            setItems((prev) => prev.filter((i) => i.id !== itemId));
             toast.success("Papel removido!");
-
-            await reloadModal();
-            onUpdated();
         } catch {
             toast.error("Erro ao remover papel");
         }
     }
 
-    /** 🔥 Adicionar novos papéis */
-    async function handleAddNewRoles() {
-        const selected = Object.entries(newRoles).filter(([_, v]) => v.checked);
-
-        if (selected.length === 0) {
-            toast.warn("Selecione pelo menos um papel.");
-            return;
-        }
+    async function handleUpdateDescription(itemId, newValue) {
+        setItems((prev) =>
+            prev.map((i) =>
+                i.id === itemId ? { ...i, description: newValue } : i
+            )
+        );
 
         try {
-            for (const [roleId, data] of selected) {
-                await addRoleToLineup(lineupId, {
-                    roleId,
-                    description: data.description || "",
-                });
-            }
-
-            toast.success("Papéis adicionados!");
-
-            await reloadModal();
-            onUpdated();
-
-            setNewRoles({});
+            await updateLineupRole(itemId, { description: newValue });
         } catch {
-            toast.error("Erro ao adicionar papéis");
+            toast.error("Erro ao atualizar descrição");
+        }
+    }
+
+    async function handleSaveAll() {
+        try {
+            await updateLineupName(lineupId, { name });
+
+            // Agora sim recarrega dados externos
+            onUpdated && onUpdated();
+
+            toast.success("Alterações salvas!");
+            handleAnimatedClose();
+        } catch {
+            toast.error("Erro ao salvar alterações");
         }
     }
 
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-
-            <div className={
-                "bg-[#1b1b1f] border border-[#2a2a30] rounded-xl p-6 w-[95%] max-w-xl max-h-[90vh] overflow-y-auto shadow-xl " +
-                (closing ? "animate-fadeOut" : "animate-scaleIn")
-            }>
-
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+            <div
+                className={`bg-[#1b1b1f] border border-[#2a2a30] rounded-xl p-6 w-[90%] max-w-xl max-h-[90vh] overflow-y-auto shadow-xl ${
+                    closing ? "animate-fadeOut" : "animate-scaleIn"
+                }`}
+            >
                 {/* HEADER */}
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-gray-100">
-                        Editar formação
+                    <h2 className="text-xl text-gray-100 font-semibold">
+                        Editar Formação
                     </h2>
                     <button
                         onClick={handleAnimatedClose}
@@ -162,121 +166,126 @@ export default function LineupEditModal({
                     </button>
                 </div>
 
-                {loading || !lineup ? (
-                    <p className="text-gray-400 text-center">Carregando...</p>
+                {loading ? (
+                    <p className="text-gray-400 text-sm">Carregando...</p>
                 ) : (
                     <>
                         {/* Nome */}
-                        <label className="text-gray-300 text-sm">Nome da formação</label>
+                        <label className="text-gray-300 text-sm">
+                            Nome da formação
+                        </label>
                         <div className="flex gap-2 mb-4">
                             <input
-                                className="w-full bg-[#121214] border border-[#2d2d35] rounded-lg px-3 py-2 text-gray-200"
+                                className="flex-1 bg-[#121214] border border-[#2d2d35] rounded-lg px-3 py-2 text-gray-200"
                                 value={name}
-                                onChange={(e) => setName(e.target.value)}
+                                onChange={(e) =>
+                                    setName(e.target.value)
+                                }
                             />
-                            <button
-                                onClick={handleSaveName}
-                                className="px-4 py-2 bg-sf-primary text-white rounded-lg hover:bg-sf-primary-600"
-                            >
-                                Salvar
-                            </button>
                         </div>
 
-                        {/* Papéis atuais */}
-                        <h3 className="text-gray-300 text-sm mb-2">Papéis atuais</h3>
-                        <div className="space-y-3 pr-1 mb-6">
+                        {/* ROLES EXISTENTES */}
+                        <p className="text-gray-300 text-sm mb-2">
+                            Papéis da formação
+                        </p>
+
+                        <div className="space-y-3 mb-6">
+                            {items.length === 0 && (
+                                <p className="text-gray-500 text-sm">
+                                    Nenhum papel ainda.
+                                </p>
+                            )}
+
                             {items.map((item) => (
-                                <div key={item.id} className="bg-[#242428] border border-[#33333a] p-3 rounded-lg">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-gray-200 font-medium">
-                                            {item.role.name}
-                                        </span>
+                                <div
+                                    key={item.id}
+                                    className="bg-[#242428] border border-[#33333a] rounded-lg p-3"
+                                >
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-gray-200 font-medium">
+                                            {
+                                                item.roleName ||
+                                                allRoles.find(r => String(r.id) === String(item.roleId))?.name ||
+                                                "Papel"
+                                            }
+                                        </p>
+
 
                                         <button
-                                            onClick={() => handleRemoveItem(item.id)}
-                                            className="p-1 bg-red-600 hover:bg-red-700 rounded-lg"
+                                            onClick={() =>
+                                                handleRemoveItem(item.id)
+                                            }
+                                            className="bg-red-600 hover:bg-red-700 p-1 rounded"
                                         >
-                                            <Trash2 size={15} className="text-white" />
+                                            <Trash2
+                                                size={16}
+                                                className="text-white"
+                                            />
                                         </button>
                                     </div>
 
                                     <input
-                                        className="w-full bg-[#121214] border border-[#2d2d35] rounded-lg px-3 py-2 text-gray-200 text-sm"
+                                        className="mt-2 w-full bg-[#121214] border border-[#2d2d35] rounded-lg px-3 py-2 text-gray-200 text-sm"
+                                        value={item.description}
                                         placeholder="Descrição"
-                                        value={item.description || ""}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setItems((old) =>
-                                                old.map((x) =>
-                                                    x.id === item.id
-                                                        ? { ...x, description: val }
-                                                        : x
-                                                )
-                                            );
-                                        }}
-                                        onBlur={(e) =>
-                                            handleUpdateDescription(item.id, e.target.value)
+                                        onChange={(e) =>
+                                            handleUpdateDescription(
+                                                item.id,
+                                                e.target.value
+                                            )
                                         }
                                     />
                                 </div>
                             ))}
                         </div>
 
-                        {/* Adicionar papéis */}
-                        <h3 className="text-gray-300 text-sm mb-2">Adicionar papéis</h3>
-                        <div className="space-y-3 pr-1 mb-4">
-                            {allRoles
-                                .filter((r) => !items.some((i) => i.role.id === r.id))
-                                .map((role) => (
-                                    <div key={role.id} className="bg-[#242428] border border-[#33333a] p-3 rounded-lg">
-                                        <label className="flex items-center gap-2 text-gray-200">
-                                            <input
-                                                type="checkbox"
-                                                className="accent-sf-primary"
-                                                checked={newRoles[role.id]?.checked || false}
-                                                onChange={(e) =>
-                                                    setNewRoles((old) => ({
-                                                        ...old,
-                                                        [role.id]: {
-                                                            ...(old[role.id] || {}),
-                                                            checked: e.target.checked,
-                                                        },
-                                                    }))
-                                                }
-                                            />
-                                            {role.name}
-                                        </label>
+                        {/* ADICIONAR NOVO PAPEL */}
+                        <p className="text-gray-300 text-sm mb-2">
+                            Adicionar novo papel
+                        </p>
 
-                                        {newRoles[role.id]?.checked && (
-                                            <input
-                                                placeholder="Descrição"
-                                                className="mt-2 w-full bg-[#121214] border border-[#2d2d35] rounded-lg px-3 py-2 text-gray-200 text-sm"
-                                                value={newRoles[role.id]?.description || ""}
-                                                onChange={(e) =>
-                                                    setNewRoles((old) => ({
-                                                        ...old,
-                                                        [role.id]: {
-                                                            ...(old[role.id] || {}),
-                                                            checked: true,
-                                                            description: e.target.value,
-                                                        },
-                                                    }))
-                                                }
-                                            />
-                                        )}
-                                    </div>
+                        <div className="flex gap-2 mb-4">
+                            <select
+                                className="w-48 bg-[#121214] border border-[#2d2d35] rounded-lg px-2 py-2 text-gray-200"
+                                value={newRole}
+                                onChange={(e) =>
+                                    setNewRole(e.target.value)
+                                }
+                            >
+                                <option value="">Selecione...</option>
+                                {allRoles.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                        {r.name}
+                                    </option>
                                 ))}
+                            </select>
+
+                            <input
+                                className="flex-1 bg-[#121214] border border-[#2d2d35] rounded-lg px-3 py-2 text-gray-200 text-sm"
+                                placeholder="Descrição (opcional)"
+                                value={newDesc}
+                                onChange={(e) =>
+                                    setNewDesc(e.target.value)
+                                }
+                            />
+
+                            <button
+                                onClick={handleAddItem}
+                                className="bg-sf-primary hover:bg-sf-primary-600 text-white px-3 rounded-lg"
+                            >
+                                <Plus size={18} />
+                            </button>
                         </div>
 
-                        <button
-                            onClick={handleAddNewRoles}
-                            className="mt-2 w-full px-4 py-2 bg-sf-primary text-white rounded-lg hover:bg-sf-primary-600"
-                        >
-                            Adicionar papéis
-                        </button>
+                        {/* RODAPÉ — SALVAR & FECHAR */}
+                        <div className="flex justify-end mt-6 gap-3">
+                            <button
+                                onClick={handleSaveAll}
+                                className="px-4 py-2 bg-sf-primary hover:bg-sf-primary-600 text-white rounded-lg"
+                            >
+                                Salvar alterações
+                            </button>
 
-                        {/* FOOTER */}
-                        <div className="flex justify-center mt-6">
                             <button
                                 onClick={handleAnimatedClose}
                                 className="px-4 py-2 text-gray-300 hover:text-white"
