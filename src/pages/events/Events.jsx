@@ -303,6 +303,7 @@ export default function Events() {
                 allIntegrants={allIntegrants}
                 allRoles={allRoles}
                 onUpdated={() => loadEvents()}
+                editable={isAdmin}
             />
 
         </div>
