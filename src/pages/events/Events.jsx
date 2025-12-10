@@ -295,6 +295,7 @@ export default function Events() {
                 allIntegrants={allIntegrants}
                 allRoles={allRoles}     // ⭐ CORRIGIDO
                 onUpdated={() => loadEvents()}
+                editable={isAdmin}
             />
 
         </div>

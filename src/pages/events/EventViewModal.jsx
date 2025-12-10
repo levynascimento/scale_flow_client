@@ -172,7 +172,7 @@ export default function EventViewModal({
                     onClick={() => onEscalation?.(event)}
                 >
                     <Users size={18} />
-                    Gerenciar Escalação
+                    {isAdmin ? "Gerenciar Escalação" : "Visualizar Escalação"}
                 </Button>
 
                 {/* MÚSICAS */}
