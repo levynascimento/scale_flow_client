@@ -1,131 +1,252 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import {
-    getBandById,
-    getBandJoinCode,
-    regenerateJoinCode,
-    getBandMembers
-} from "../../services/bandApi";
+import { useEffect, useMemo, useState } from "react";
+import { getBandById, getBandMembers } from "../../services/bandApi";
 import { getBandMusics } from "../../services/musicApi";
-import toast from "react-hot-toast";
-import { RotateCcw } from "lucide-react";
+import { getBandEvents } from "../../services/eventApi";
 
 export default function BandHome() {
-    const { id } = useParams();
+    const bandId = localStorage.getItem("bandId");
+    const role = localStorage.getItem("bandRole");
+    const userId = localStorage.getItem("userId");
+
+    const isAdmin = role === "ADMIN";
 
     const [band, setBand] = useState(null);
-    const [musicCount, setMusicCount] = useState(0);
-    const [memberCount, setMemberCount] = useState(0);
+    const [membersCount, setMembersCount] = useState(0);
+    const [musicsCount, setMusicsCount] = useState(0);
+    const [events, setEvents] = useState([]);
+
     const [loading, setLoading] = useState(true);
-    const [regenLoading, setRegenLoading] = useState(false);
 
-    const role = localStorage.getItem("bandRole") || "MEMBER";
-
+    // =================================================
+    // LOAD INICIAL
+    // =================================================
     useEffect(() => {
+        if (!bandId) return;
+
         async function load() {
             try {
-                const bandData = await getBandById(id);
+                setLoading(true);
 
-                let joinCode = null;
-                if (role === "ADMIN") {
-                    try {
-                        const codeResp = await getBandJoinCode(id);
-                        joinCode = codeResp?.joinCode || null;
-                    } catch (err) {
-                        joinCode = null;
-                    }
-                }
+                const bandResp = await getBandById(bandId);
+                setBand(bandResp);
 
-                const musics = await getBandMusics(id);
-                const members = await getBandMembers(id);
+                const members = await getBandMembers(bandId);
+                setMembersCount(members.length);
 
-                setBand({
-                    ...bandData,
-                    joinCode
-                });
-                setMusicCount(musics.length);
-                setMemberCount(members.length);
+                const musics = await getBandMusics(bandId);
+                setMusicsCount(musics.length);
+
+                const eventsResp = await getBandEvents(bandId);
+                setEvents(eventsResp);
+
             } catch (err) {
-                console.error("Erro ao carregar banda:", err);
-                toast.error("Erro ao carregar dados da banda.");
-                setBand({ name: "Erro ao carregar", joinCode: null });
+                console.error("Erro ao carregar BandHome:", err);
             } finally {
                 setLoading(false);
             }
         }
 
         load();
-    }, [id, role]);
+    }, [bandId]);
 
-    async function handleRegenerateCode() {
-        setRegenLoading(true);
-        try {
-            const data = await regenerateJoinCode(id);
-            setBand((prev) => ({ ...prev, joinCode: data.joinCode }));
-            toast.success("Novo código gerado com sucesso!");
-        } catch (err) {
-            console.error(err);
-            toast.error("Erro ao regenerar o código.");
-        } finally {
-            setRegenLoading(false);
+    // =================================================
+    // PRÓXIMO EVENTO
+    // =================================================
+    const nextEvent = useMemo(() => {
+        const now = new Date();
+        return events
+            .filter(e => new Date(e.startingTime) > now)
+            .sort((a, b) => new Date(a.startingTime) - new Date(b.startingTime))[0];
+    }, [events]);
+
+    // =================================================
+    // STATUS DA ESCALA
+    // =================================================
+    let scaleStatus = null;
+    let missingRoles = 0;
+
+    if (nextEvent) {
+        if (!nextEvent.escalationsCount || nextEvent.escalationsCount === 0) {
+            scaleStatus = "none";
+        } else if (
+            nextEvent.lineupId &&
+            nextEvent.lineupRolesCount &&
+            nextEvent.escalationsCount < nextEvent.lineupRolesCount
+        ) {
+            scaleStatus = "incomplete";
+            missingRoles =
+                nextEvent.lineupRolesCount -
+                nextEvent.escalationsCount;
+        } else {
+            scaleStatus = "complete";
         }
     }
 
-    if (loading) return <div className="p-8 text-gray-300">Carregando...</div>;
+    // =================================================
+    // EVENTOS DO USUÁRIO (MEMBER)
+    // =================================================
+    const userEvents = useMemo(() => {
+        if (isAdmin) return [];
 
+        return events.filter(e =>
+            e.escalations?.some(
+                es => String(es.user?.id) === String(userId)
+            )
+        );
+    }, [events, isAdmin, userId]);
+
+    // =================================================
+    // LOADING
+    // =================================================
+    if (loading) {
+        return (
+            <div className="space-y-4">
+                <div className="h-8 w-64 bg-[#1f1f26] rounded animate-pulse" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="h-24 bg-[#1f1f26] rounded-xl animate-pulse" />
+                    <div className="h-24 bg-[#1f1f26] rounded-xl animate-pulse" />
+                    <div className="h-24 bg-[#1f1f26] rounded-xl animate-pulse" />
+                </div>
+            </div>
+        );
+    }
+
+    if (!band) {
+        return <p className="text-gray-400">Banda não encontrada.</p>;
+    }
+
+    // =================================================
+    // RENDER
+    // =================================================
     return (
-        <div className="p-8 space-y-8 text-gray-100">
-            {/* Cabeçalho */}
-            <div>
-                <h1 className="text-3xl font-bold mb-2">{band?.name}</h1>
+        <div className="space-y-8">
+            {/* HEADER */}
+            <h1 className="text-3xl font-bold">
+                {band.name}
+            </h1>
 
-                {/* Código da banda (somente Admin) */}
-                {role === "ADMIN" && band.joinCode && (
-                    <div className="bg-[#1e1e22] border border-[#2a2a30] rounded-xl p-4 text-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-400 mb-1">Código da banda:</p>
-                                <code className="bg-[#2a2a2f] px-3 py-1 rounded text-[#7c5fff] font-semibold">
-                                    {band.joinCode}
-                                </code>
-                            </div>
-
-                            <button
-                                onClick={handleRegenerateCode}
-                                disabled={regenLoading}
-                                className={`flex items-center gap-2 bg-[#7c5fff]/20 border border-[#7c5fff]/40 
-                                        text-[#a08cff] hover:bg-[#7c5fff]/30 transition-all px-4 py-2 rounded-lg font-medium
-                                        ${regenLoading ? "opacity-60 cursor-not-allowed" : ""}`}
-                            >
-                                <RotateCcw
-                                    className={`w-4 h-4 ${
-                                        regenLoading ? "animate-spin" : ""
-                                    }`}
-                                />
-                                {regenLoading ? "Gerando..." : "Regenerar Código"}
-                            </button>
-                        </div>
-                    </div>
-                )}
+            {/* VISÃO GERAL */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StatCard label="Músicas" value={musicsCount} />
+                <StatCard label="Integrantes" value={membersCount} />
+                <StatCard
+                    label="Eventos futuros"
+                    value={
+                        events.filter(
+                            e => new Date(e.startingTime) > new Date()
+                        ).length
+                    }
+                />
             </div>
 
-            {/* Estatísticas */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <StatCard title="Músicas" value={musicCount} />
-                <StatCard title="Integrantes" value={memberCount} />
-                <StatCard title="Criada em" value={new Date().toLocaleDateString("pt-BR")} />
+            {/* CONTEXTO */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Próximo evento */}
+                <div className="bg-[#1f1f26] border border-[#2a2a30] rounded-xl p-4">
+                    <p className="text-sm text-indigo-400 mb-1">
+                        Próximo evento
+                    </p>
+
+                    {nextEvent ? (
+                        <>
+                            <p className="font-semibold">
+                                {nextEvent.name}
+                            </p>
+                            <p className="text-sm text-gray-400">
+                                {new Date(
+                                    nextEvent.startingTime
+                                ).toLocaleString("pt-BR")}
+                            </p>
+                        </>
+                    ) : (
+                        <p className="text-sm text-gray-400">
+                            Nenhum evento futuro.
+                        </p>
+                    )}
+                </div>
+
+                {/* Status da escala */}
+                <div className="bg-[#1f1f26] border border-[#2a2a30] rounded-xl p-4">
+                    <p className="text-sm text-indigo-400 mb-1">
+                        Escalação
+                    </p>
+
+                    {!nextEvent && (
+                        <p className="text-sm text-gray-400">—</p>
+                    )}
+
+                    {nextEvent && scaleStatus === "complete" && (
+                        <p className="text-green-400 font-medium">
+                            ✅ Escala completa
+                        </p>
+                    )}
+
+                    {nextEvent && scaleStatus === "incomplete" && (
+                        <>
+                            <p className="text-yellow-400 font-medium">
+                                ⚠️ Escala incompleta
+                            </p>
+                            {isAdmin && (
+                                <p className="text-sm text-gray-400">
+                                    {missingRoles} papéis pendentes
+                                </p>
+                            )}
+                        </>
+                    )}
+
+                    {nextEvent && scaleStatus === "none" && (
+                        <p className="text-red-400 font-medium">
+                            ❌ Nenhuma escala
+                        </p>
+                    )}
+                </div>
             </div>
 
-            {/* Nenhum botão aqui agora — lógica movida para a sidebar */}
+            {/* EVENTOS DO USUÁRIO (MEMBER) */}
+            {!isAdmin && (
+                <div className="bg-[#1f1f26] border border-[#2a2a30] rounded-xl p-4">
+                    <p className="text-sm text-indigo-400 mb-2">
+                        Você está escalado em
+                    </p>
+
+                    {userEvents.length > 0 ? (
+                        <ul className="space-y-1 text-sm">
+                            {userEvents.map(e => {
+                                const esc = e.escalations.find(
+                                    es =>
+                                        String(es.user?.id) ===
+                                        String(userId)
+                                );
+
+                                return (
+                                    <li key={e.id}>
+                                        • {e.name} —{" "}
+                                        <span className="text-gray-400">
+                                            {esc?.role?.name || "—"}
+                                        </span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-gray-400">
+                            Você não está escalado em eventos futuros.
+                        </p>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
 
-function StatCard({ title, value }) {
+// =================================================
+// COMPONENTE AUXILIAR
+// =================================================
+function StatCard({ label, value }) {
     return (
-        <div className="bg-[#1e1e22] border border-[#2a2a30] rounded-xl p-4 text-center">
-            <h3 className="text-gray-400 text-sm mb-1">{title}</h3>
-            <p className="text-2xl font-bold text-gray-100">{value}</p>
+        <div className="bg-[#1f1f26] border border-[#2a2a30] rounded-xl p-4 text-center">
+            <p className="text-sm text-gray-400">{label}</p>
+            <p className="text-2xl font-bold">{value}</p>
         </div>
     );
 }
