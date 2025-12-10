@@ -1,3 +1,5 @@
+// src_frontend/pages/events/Events.jsx
+
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -15,6 +17,7 @@ import {
 
 import { getBandIntegrants } from '../../services/integrantsApi.js';
 import { getRoles } from '../../services/rolesApi.js';
+import { getLineups } from '../../services/lineupApi.js'; // ⭐ importa formações
 
 import Button from '../../components/Button.jsx';
 import ConfirmDialog from '../../components/ConfirmDialog.jsx';
@@ -47,7 +50,8 @@ export default function Events() {
     const [escalationEvent, setEscalationEvent] = useState(null);
 
     const [allIntegrants, setAllIntegrants] = useState([]);
-    const [allRoles, setAllRoles] = useState([]);  // ⭐ AGORA O NOME CORRETO
+    const [allRoles, setAllRoles] = useState([]);
+    const [lineups, setLineups] = useState([]); // ⭐ formações da banda
 
     /** Atualiza apenas 1 evento da lista */
     function updateEventInList(eventId, newData) {
@@ -57,6 +61,7 @@ export default function Events() {
             )
         );
     }
+
     // -----------------------------------------------------
     // LOAD EVENTS
     // -----------------------------------------------------
@@ -115,28 +120,30 @@ export default function Events() {
         }
     }
 
-    // Rodar ao carregar
+    // Rodar ao carregar / trocar filtro
     useEffect(() => {
         async function run() {
             await loadEvents();
         }
-        run();
+        if (bandId) run();
     }, [bandId, filter]);
 
     // -----------------------------------------------------
-    // LOAD INTEGRANTS + ROLES
+    // LOAD INTEGRANTS + ROLES + LINEUPS
     // -----------------------------------------------------
     useEffect(() => {
         async function loadAux() {
             try {
                 const integrants = await getBandIntegrants(bandId);
-                const roles = await getRoles();   // ⭐ PAPÉIS DA TABELA ROLE
+                const roles = await getRoles();
+                const bandLineups = await getLineups(bandId); // ⭐ busca formações
 
                 setAllIntegrants(integrants);
                 setAllRoles(roles);
+                setLineups(bandLineups);
 
             } catch (err) {
-                console.error("Erro ao carregar integrants/roles:", err);
+                console.error("Erro ao carregar integrants/roles/lineups:", err);
             }
         }
 
@@ -272,6 +279,7 @@ export default function Events() {
             <EventFormModal
                 open={formOpen}
                 event={editingEvent}
+                lineups={lineups} // ⭐ passa formações para o modal
                 onClose={() => {
                     setFormOpen(false);
                     setEditingEvent(null);
@@ -293,9 +301,8 @@ export default function Events() {
                 event={escalationEvent}
                 onClose={() => setOpenEscalation(false)}
                 allIntegrants={allIntegrants}
-                allRoles={allRoles}     // ⭐ CORRIGIDO
+                allRoles={allRoles}
                 onUpdated={() => loadEvents()}
-                editable={isAdmin}
             />
 
         </div>

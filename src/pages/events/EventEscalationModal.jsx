@@ -14,7 +14,6 @@ import { X, UserPlus, Trash2, Layers } from "lucide-react";
 export default function EventEscalationModal({
                                                  open,
                                                  event,
-                                                 editable = false, // 🔑 define se pode editar ou só visualizar
                                                  onClose,
                                                  allIntegrants = [],
                                                  allRoles = [],
@@ -25,16 +24,16 @@ export default function EventEscalationModal({
 
     const [suggestedLineup, setSuggestedLineup] = useState(null);
 
-    // Sugestões da formação (frontend only)
+    // 🔹 Escalações sugeridas (frontend)
     const [pendingEscalations, setPendingEscalations] = useState([]);
 
-    // Adição manual
+    // 🔹 Adição manual (fluxo antigo)
     const [adding, setAdding] = useState(false);
     const [selectedIntegrant, setSelectedIntegrant] = useState("");
     const [selectedRole, setSelectedRole] = useState("");
 
     // --------------------------------------------------
-    // Carregar dados
+    // Load data
     // --------------------------------------------------
     async function loadData() {
         if (!event) return;
@@ -51,6 +50,8 @@ export default function EventEscalationModal({
             } else {
                 setSuggestedLineup(null);
             }
+
+            setPendingEscalations([]);
 
         } catch (err) {
             console.error(err);
@@ -85,10 +86,7 @@ export default function EventEscalationModal({
             });
 
             toast.success("Escalação adicionada!");
-
-            const data = await getEscalations(event.id);
-            setEscalations(data);
-
+            await loadData();
             onUpdated?.();
 
             setAdding(false);
@@ -134,7 +132,7 @@ export default function EventEscalationModal({
             }))
         ]));
 
-        toast.success("Formação aplicada como sugestão.");
+        toast.success("Formação aplicada como sugestão. Ajuste como quiser.");
     }
 
     // --------------------------------------------------
@@ -156,11 +154,12 @@ export default function EventEscalationModal({
 
             toast.success("Escalação adicionada!");
 
-            // remove somente a sugestão confirmada
+            // ✅ remove SOMENTE o item confirmado
             setPendingEscalations(prev =>
                 prev.filter((_, i) => i !== index)
             );
 
+            // ✅ atualiza apenas as escalações reais
             const data = await getEscalations(event.id);
             setEscalations(data);
 
@@ -171,6 +170,7 @@ export default function EventEscalationModal({
             toast.error("Erro ao confirmar escalação.");
         }
     }
+
 
     // --------------------------------------------------
     // Cancelar sugestão
@@ -187,12 +187,9 @@ export default function EventEscalationModal({
     async function handleDelete(id) {
         try {
             await deleteEscalation(id);
-
             toast.success("Escalação removida!");
 
-            const data = await getEscalations(event.id);
-            setEscalations(data);
-
+            await loadData();
             onUpdated?.();
 
         } catch (err) {
@@ -208,7 +205,7 @@ export default function EventEscalationModal({
             <div className="bg-[#1a1a1e] border border-[#2a2a30] rounded-2xl p-7 w-[95%] max-w-2xl text-gray-200 shadow-xl">
 
                 {/* HEADER */}
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">
                         Escalação — {event.name}
                     </h1>
@@ -217,15 +214,8 @@ export default function EventEscalationModal({
                     </button>
                 </div>
 
-                {/* Modo visualização */}
-                {!editable && (
-                    <p className="text-sm text-gray-400 italic mb-4">
-                        Modo visualização — apenas administradores podem alterar a escala.
-                    </p>
-                )}
-
                 {/* FORMAÇÃO SUGERIDA */}
-                {editable && suggestedLineup && (
+                {suggestedLineup && (
                     <div className="mb-6 p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/10">
                         <div className="flex justify-between items-start gap-4">
                             <div>
@@ -233,7 +223,6 @@ export default function EventEscalationModal({
                                     <Layers size={16} />
                                     Formação sugerida
                                 </p>
-
                                 <p className="text-sm text-gray-400">
                                     {suggestedLineup.name}
                                 </p>
@@ -263,40 +252,27 @@ export default function EventEscalationModal({
                         Nenhum integrante escalado ainda.
                     </p>
                 ) : (
-                    <div className="space-y-4 mb-8">
+                    <div className="space-y-4 mb-10">
                         {escalations.map(es => (
-                            <div
-                                key={es.id}
-                                className="p-4 bg-[#111118] border border-[#2a2a30] rounded-xl flex justify-between items-center"
-                            >
+                            <div key={es.id}
+                                 className="p-4 bg-[#111118] border border-[#2a2a30] rounded-xl flex justify-between items-center">
                                 <div>
-                                    <p className="font-medium text-lg">
-                                        {es.user?.name}
-                                    </p>
-                                    <p className="text-gray-400 text-sm">
-                                        {es.role?.name}
-                                    </p>
+                                    <p className="font-medium text-lg">{es.user?.name}</p>
+                                    <p className="text-gray-400 text-sm">{es.role?.name}</p>
                                 </div>
-
-                                {editable && (
-                                    <button
-                                        onClick={() => handleDelete(es.id)}
-                                        className="p-2 bg-red-600/80 hover:bg-red-600 rounded-lg"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => handleDelete(es.id)}
+                                    className="p-2 bg-red-600/80 hover:bg-red-600 rounded-lg">
+                                    <Trash2 size={18} />
+                                </button>
                             </div>
                         ))}
                     </div>
                 )}
 
                 {/* SUGESTÕES EDITÁVEIS */}
-                {editable && pendingEscalations.map((p, idx) => (
-                    <div
-                        key={idx}
-                        className="p-5 mb-6 bg-[#101018] border border-[#2a2a30] rounded-xl"
-                    >
+                {pendingEscalations.map((p, idx) => (
+                    <div key={idx} className="p-5 mb-6 bg-[#101018] border border-[#2a2a30] rounded-xl">
                         <p className="text-sm text-indigo-300 mb-3">
                             Novo escalado (sugestão)
                         </p>
@@ -367,8 +343,8 @@ export default function EventEscalationModal({
                     </div>
                 ))}
 
-                {/* ADIÇÃO MANUAL */}
-                {editable && !adding && (
+                {/* ADD MANUAL */}
+                {!adding && (
                     <Button
                         className="w-full bg-[#7c5fff] hover:bg-[#6a4ee8] flex items-center justify-center gap-2 py-3"
                         onClick={() => setAdding(true)}
@@ -378,7 +354,8 @@ export default function EventEscalationModal({
                     </Button>
                 )}
 
-                {editable && adding && (
+                {/* FORM MANUAL */}
+                {adding && (
                     <div className="mt-6 space-y-4 p-5 bg-[#111118] border border-[#2a2a30] rounded-xl">
                         <h2 className="text-lg font-semibold">Novo escalado</h2>
 
@@ -429,6 +406,7 @@ export default function EventEscalationModal({
                         </div>
                     </div>
                 )}
+
             </div>
         </div>
     );
