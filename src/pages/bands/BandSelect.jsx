@@ -140,7 +140,16 @@ export default function BandSelect() {
                                             {integration.band.name}
                                         </span>
                                         <span className="text-xs text-gray-400">
-                                            Papel: {integration.type === 'ADMIN' ? 'Administrador' : integration.type}
+                                            Papel: {
+                                            integration.type === 'ADMIN'
+                                                ? 'Administrador'
+                                                : integration.type === 'MEMBER'
+                                                    ? 'Membro'
+                                                    : integration.type === 'OBSERVER'
+                                                        ? 'Observador'
+                                                        : 'Desconhecido'
+                                        }
+
                                         </span>
                                     </div>
                                 </li>
