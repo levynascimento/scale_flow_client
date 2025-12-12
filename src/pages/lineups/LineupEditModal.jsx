@@ -13,7 +13,8 @@ import {
 export default function LineupEditModal({ open, onClose, lineupId, onUpdated }) {
     const [name, setName] = useState("");
     const [roles, setRoles] = useState([]);
-    const [items, setItems] = useState([]); // roles já na formação
+    const [items, setItems] = useState([]);
+    const [draftItems, setDraftItems] = useState([]);
     const [newRole, setNewRole] = useState("");
 
     const [loading, setLoading] = useState(true);
@@ -41,6 +42,7 @@ export default function LineupEditModal({ open, onClose, lineupId, onUpdated }) 
 
                 setName(lineupData.name);
                 setItems(lineupData.roles || []);
+                setDraftItems(lineupData.roles || []);
                 setRoles(rolesData);
             } catch {
                 toast.error("Erro ao carregar formação");
@@ -62,34 +64,50 @@ export default function LineupEditModal({ open, onClose, lineupId, onUpdated }) 
         }
     }
 
-    async function handleAddRole() {
+    function handleAddRoleLocal() {
         if (!newRole) return toast.warn("Selecione um papel.");
 
-        try {
-            await addRoleToLineup(lineupId, {
-                roleId: newRole,
-            });
+        const role = roles.find(r => r.id === newRole);
+        if (!role) return;
 
-            const updated = await getLineup(lineupId);
-            setItems(updated.roles || []);
-            setNewRole("");
+        setDraftItems(prev => [
+            ...prev,
+            {
+                id: `temp-${Date.now()}`,
+                role,
+                isNew: true,
+            },
+        ]);
 
-            toast.success("Papel adicionado");
-            onUpdated();
-        } catch {
-            toast.error("Erro ao adicionar papel");
-        }
+        setNewRole("");
     }
 
-    async function handleRemoveRole(itemId) {
-        try {
-            await removeRoleFromLineup(itemId);
+    function handleRemoveRoleLocal(itemId) {
+        setDraftItems(prev => prev.filter(i => i.id !== itemId));
+    }
 
-            setItems((prev) => prev.filter((i) => i.id !== itemId));
-            toast.success("Papel removido");
+    async function handleSaveRoles() {
+        try {
+            const removed = items.filter(
+                old => !draftItems.find(d => d.id === old.id)
+            );
+
+            for (const r of removed) {
+                await removeRoleFromLineup(r.id);
+            }
+
+            const added = draftItems.filter(i => i.isNew);
+            for (const a of added) {
+                await addRoleToLineup(lineupId, {
+                    roleId: a.role.id,
+                });
+            }
+
+            toast.success("Formação atualizada!");
             onUpdated();
+            handleAnimatedClose();
         } catch {
-            toast.error("Erro ao remover papel");
+            toast.error("Erro ao salvar formação");
         }
     }
 
@@ -132,36 +150,27 @@ export default function LineupEditModal({ open, onClose, lineupId, onUpdated }) 
                             Papéis da formação
                         </p>
 
-                        {items.length === 0 ? (
-                            <p className="text-gray-500 text-sm mb-4">
-                                Nenhum papel cadastrado.
-                            </p>
-                        ) : (
-                            <div className="space-y-3 mb-4">
-                                {items.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="bg-[#242428] border border-[#33333a] p-3 rounded-lg flex justify-between items-center"
-                                    >
-                                        <p className="text-gray-200 font-medium">
-                                            {item.role?.name}
-                                        </p>
+                        <div className="space-y-3 mb-4">
+                            {draftItems.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className="bg-[#242428] border border-[#33333a] p-3 rounded-lg flex justify-between items-center"
+                                >
+                                    <p className="text-gray-200 font-medium">
+                                        {item.role?.name}
+                                    </p>
 
-                                        <button
-                                            onClick={() =>
-                                                handleRemoveRole(item.id)
-                                            }
-                                            className="bg-red-600 hover:bg-red-700 p-1 rounded"
-                                        >
-                                            <Trash2
-                                                size={16}
-                                                className="text-white"
-                                            />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                                    <button
+                                        onClick={() =>
+                                            handleRemoveRoleLocal(item.id)
+                                        }
+                                        className="bg-red-600 hover:bg-red-700 p-1 rounded"
+                                    >
+                                        <Trash2 size={16} className="text-white" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
 
                         <p className="text-gray-300 text-sm mb-2">
                             Adicionar papel
@@ -182,19 +191,26 @@ export default function LineupEditModal({ open, onClose, lineupId, onUpdated }) 
                             </select>
 
                             <button
-                                onClick={handleAddRole}
+                                onClick={handleAddRoleLocal}
                                 className="bg-sf-primary hover:bg-sf-primary-600 text-white px-3 rounded-lg"
                             >
                                 <Plus size={18} />
                             </button>
                         </div>
 
-                        <div className="flex justify-end">
+                        <div className="flex justify-between">
                             <button
                                 onClick={handleAnimatedClose}
                                 className="px-4 py-2 text-gray-300 hover:text-white"
                             >
-                                Fechar
+                                Cancelar
+                            </button>
+
+                            <button
+                                onClick={handleSaveRoles}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg"
+                            >
+                                Salvar alterações
                             </button>
                         </div>
                     </>
