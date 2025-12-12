@@ -13,11 +13,11 @@ import { getRoles } from "../../services/rolesApi";
 import toast from "react-hot-toast";
 import Button from "../../components/Button.jsx";
 import Input from "../../components/Input.jsx";
+import ConfirmDialog from "../../components/ConfirmDialog.jsx";
 import { NavLink } from "react-router-dom";
 import { FiArrowLeft } from "react-icons/fi";
 
 export default function UserSettings() {
-    // PEGAR O ID DA BANDA ATUAL DE FORMA GLOBAL
     const bandId = localStorage.getItem("bandId");
 
     const [user, setUser] = useState(null);
@@ -25,12 +25,15 @@ export default function UserSettings() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
+    // CONFIRM DELETE
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
     // --- HABILIDADES ---
     const [habilities, setHabilities] = useState([]);
     const [roles, setRoles] = useState([]);
     const [newRole, setNewRole] = useState("");
     const [newLevel, setNewLevel] = useState("");
-
     const [levelInputs, setLevelInputs] = useState({});
 
     // ------------------------------------------
@@ -75,16 +78,18 @@ export default function UserSettings() {
     }
 
     // ------------------------------------------
-    async function handleDeleteAccount() {
-        if (!confirm("Tem certeza que deseja deletar sua conta?")) return;
-
+    async function handleConfirmDeleteAccount() {
         try {
+            setDeleting(true);
             await deleteUser();
             toast.success("Conta deletada!");
             localStorage.clear();
             window.location.href = "/auth/login";
         } catch {
             toast.error("Erro ao deletar conta.");
+        } finally {
+            setDeleting(false);
+            setConfirmOpen(false);
         }
     }
 
@@ -157,7 +162,6 @@ export default function UserSettings() {
     async function handleUpdate(level, roleSlug) {
         try {
             const role = roles.find(r => r.slug === roleSlug);
-
             await updateUserHability(role.name, level);
             toast.success("Nível atualizado!");
         } catch {
@@ -189,7 +193,6 @@ export default function UserSettings() {
     // ------------------------------------------
     if (!user) return <div className="p-8 text-gray-300">Carregando...</div>;
 
-    // ------------------------------------------
     return (
         <div className="p-8 space-y-10">
 
@@ -238,7 +241,6 @@ export default function UserSettings() {
 
             {/* HABILIDADES */}
             <div className="bg-sf-card p-6 rounded-xl border border-sf-border space-y-4">
-
                 <h2 className="text-xl font-semibold">Minhas Habilidades</h2>
 
                 <div className="space-y-4">
@@ -300,71 +302,28 @@ export default function UserSettings() {
                         </div>
                     ))}
                 </div>
-
-                {/* ADICIONAR NOVA */}
-                <div className="pt-4 border-t border-sf-border">
-                    <h3 className="text-lg font-semibold mb-2">Adicionar nova habilidade</h3>
-
-                    <div className="flex gap-4 items-end">
-
-                        {/* SELECT PAPEL */}
-                        <div className="flex-1">
-                            <label className="text-sm text-sf-muted mb-2 block">Papel</label>
-                            <select
-                                value={newRole}
-                                onChange={(e) => setNewRole(e.target.value)}
-                                className="w-full rounded-xl border border-sf-border bg-sf-card px-4 py-3 text-sf-foreground outline-none
-                                    focus:ring-2 focus:ring-sf-primary/60"
-                            >
-                                <option value="">Selecione...</option>
-                                {roles.map(r => (
-                                    <option key={r.id} value={r.slug}>
-                                        {r.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* INPUT DE NÍVEL */}
-                        <Input
-                            label="Nível"
-                            type="text"
-                            inputMode="numeric"
-                            className="w-24"
-                            value={newLevel}
-                            onChange={(e) => {
-                                const v = e.target.value;
-
-                                if (v === "") {
-                                    setNewLevel("");
-                                    return;
-                                }
-
-                                if (/^\d{1,2}$/.test(v)) {
-                                    setNewLevel(v);
-                                }
-                            }}
-                        />
-
-                        <Button
-                            className="bg-sf-primary hover:bg-sf-primary/80"
-                            onClick={handleAddHability}
-                        >
-                            Adicionar
-                        </Button>
-                    </div>
-                </div>
             </div>
 
             {/* ZONA DE PERIGO */}
             <div className="bg-sf-card p-6 rounded-xl border border-red-900/50 space-y-4">
                 <h2 className="text-xl font-semibold text-red-400">Zona de Perigo</h2>
 
-                <Button className="bg-red-600 hover:bg-red-700" onClick={handleDeleteAccount}>
+                <Button
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={() => setConfirmOpen(true)}
+                >
                     Deletar Conta
                 </Button>
             </div>
 
+            {/* CONFIRM DIALOG */}
+            <ConfirmDialog
+                open={confirmOpen}
+                title="Deletar Conta"
+                message="Esta ação é irreversível. Todos os seus dados serão apagados. Deseja continuar?"
+                onCancel={() => setConfirmOpen(false)}
+                onConfirm={handleConfirmDeleteAccount}
+            />
         </div>
     );
 }
