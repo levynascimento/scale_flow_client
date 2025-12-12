@@ -6,15 +6,23 @@ import {
     getEscalations,
     createEscalation,
     deleteEscalation,
+    getPriorityList
 } from "../../services/escalationApi";
 
 import { getLineup } from "../../services/lineupApi";
 import { X, UserPlus, Trash2, Layers } from "lucide-react";
 
+/**
+ * Recupera o ID da banda ativa a partir da sessão (localStorage)
+ */
+function getCurrentBandId() {
+    return localStorage.getItem("bandId");
+}
+
 export default function EventEscalationModal({
                                                  open,
                                                  event,
-                                                 editable = false, // 🔑 define se pode editar ou só visualizar
+                                                 editable = false,
                                                  onClose,
                                                  allIntegrants = [],
                                                  allRoles = [],
@@ -22,20 +30,16 @@ export default function EventEscalationModal({
                                              }) {
     const [loading, setLoading] = useState(true);
     const [escalations, setEscalations] = useState([]);
-
     const [suggestedLineup, setSuggestedLineup] = useState(null);
 
-    // Sugestões da formação (frontend only)
     const [pendingEscalations, setPendingEscalations] = useState([]);
 
-    // Adição manual
     const [adding, setAdding] = useState(false);
     const [selectedIntegrant, setSelectedIntegrant] = useState("");
     const [selectedRole, setSelectedRole] = useState("");
 
-    // --------------------------------------------------
-    // Carregar dados
-    // --------------------------------------------------
+    const [priorityCache, setPriorityCache] = useState({});
+
     async function loadData() {
         if (!event) return;
 
@@ -65,13 +69,47 @@ export default function EventEscalationModal({
             setAdding(false);
             setSelectedIntegrant("");
             setSelectedRole("");
+            setPendingEscalations([]);
             loadData();
         }
     }, [open, event?.id]);
 
-    // --------------------------------------------------
-    // Criar escalação manual
-    // --------------------------------------------------
+    async function loadPriority(roleId) {
+        if (!roleId || priorityCache[roleId]) return;
+
+        const bandId = getCurrentBandId();
+        if (!bandId) return;
+
+        const role = allRoles.find(r => r.id === roleId);
+        if (!role?.slug) return;
+
+        try {
+            const data = await getPriorityList(role.slug, bandId);
+
+            setPriorityCache(prev => ({
+                ...prev,
+                [roleId]: data
+            }));
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    function getOrderedIntegrants(roleId) {
+        if (!roleId || !priorityCache[roleId]) return allIntegrants;
+
+        const priorityMap = {};
+        priorityCache[roleId].forEach(p => {
+            priorityMap[p.userId] = p.priority;
+        });
+
+        return [...allIntegrants].sort((a, b) => {
+            const pA = priorityMap[a.user.id] ?? -1;
+            const pB = priorityMap[b.user.id] ?? -1;
+            return pB - pA;
+        });
+    }
+
     async function handleCreate() {
         if (!selectedIntegrant || !selectedRole) {
             toast.error("Selecione o integrante e o papel.");
@@ -86,14 +124,12 @@ export default function EventEscalationModal({
 
             toast.success("Escalação adicionada!");
 
-            const data = await getEscalations(event.id);
-            setEscalations(data);
-
-            onUpdated?.();
-
             setAdding(false);
             setSelectedIntegrant("");
             setSelectedRole("");
+
+            await loadData();
+            onUpdated?.();
 
         } catch (err) {
             console.error(err);
@@ -101,16 +137,10 @@ export default function EventEscalationModal({
         }
     }
 
-    // --------------------------------------------------
-    // Aplicar formação como sugestões
-    // --------------------------------------------------
     function applyFormationAsSuggestions() {
         if (!suggestedLineup) return;
 
-        const existingRoleIds = escalations
-            .map(e => e.role?.id)
-            .filter(Boolean);
-
+        const existingRoleIds = escalations.map(e => e.role?.id).filter(Boolean);
         const pendingRoleIds = pendingEscalations.map(p => p.roleId);
 
         const rolesToSuggest = suggestedLineup.roles
@@ -120,10 +150,7 @@ export default function EventEscalationModal({
                 !pendingRoleIds.includes(role.id)
             );
 
-        if (rolesToSuggest.length === 0) {
-            toast("Todos os papéis da formação já estão na escala ou nas sugestões.");
-            return;
-        }
+        rolesToSuggest.forEach(role => loadPriority(role.id));
 
         setPendingEscalations(prev => ([
             ...prev,
@@ -137,9 +164,6 @@ export default function EventEscalationModal({
         toast.success("Formação aplicada como sugestão.");
     }
 
-    // --------------------------------------------------
-    // Confirmar sugestão
-    // --------------------------------------------------
     async function confirmPending(index) {
         const item = pendingEscalations[index];
 
@@ -154,47 +178,32 @@ export default function EventEscalationModal({
                 roleId: item.roleId,
             });
 
-            toast.success("Escalação adicionada!");
-
-            // remove somente a sugestão confirmada
             setPendingEscalations(prev =>
                 prev.filter((_, i) => i !== index)
             );
 
-            const data = await getEscalations(event.id);
-            setEscalations(data);
-
+            await loadData();
             onUpdated?.();
 
+            toast.success("Escalação adicionada!");
         } catch (err) {
             console.error(err);
             toast.error("Erro ao confirmar escalação.");
         }
     }
 
-    // --------------------------------------------------
-    // Cancelar sugestão
-    // --------------------------------------------------
     function cancelPending(index) {
         setPendingEscalations(prev =>
             prev.filter((_, i) => i !== index)
         );
     }
 
-    // --------------------------------------------------
-    // Remover escalação existente
-    // --------------------------------------------------
     async function handleDelete(id) {
         try {
             await deleteEscalation(id);
-
-            toast.success("Escalação removida!");
-
-            const data = await getEscalations(event.id);
-            setEscalations(data);
-
+            await loadData();
             onUpdated?.();
-
+            toast.success("Escalação removida!");
         } catch (err) {
             console.error(err);
             toast.error("Erro ao remover escalação.");
@@ -217,14 +226,12 @@ export default function EventEscalationModal({
                     </button>
                 </div>
 
-                {/* Modo visualização */}
                 {!editable && (
                     <p className="text-sm text-gray-400 italic mb-4">
                         Modo visualização — apenas administradores podem alterar a escala.
                     </p>
                 )}
 
-                {/* FORMAÇÃO SUGERIDA */}
                 {editable && suggestedLineup && (
                     <div className="mb-6 p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/10">
                         <div className="flex justify-between items-start gap-4">
@@ -233,11 +240,9 @@ export default function EventEscalationModal({
                                     <Layers size={16} />
                                     Formação sugerida
                                 </p>
-
                                 <p className="text-sm text-gray-400">
                                     {suggestedLineup.name}
                                 </p>
-
                                 <ul className="mt-2 text-sm text-gray-300 space-y-1">
                                     {suggestedLineup.roles.map(r => (
                                         <li key={r.id}>• {r.role.name}</li>
@@ -255,7 +260,6 @@ export default function EventEscalationModal({
                     </div>
                 )}
 
-                {/* ESCALAÇÕES EXISTENTES */}
                 {loading ? (
                     <p className="text-gray-400 text-center py-6">Carregando…</p>
                 ) : escalations.length === 0 ? (
@@ -291,12 +295,8 @@ export default function EventEscalationModal({
                     </div>
                 )}
 
-                {/* SUGESTÕES EDITÁVEIS */}
                 {editable && pendingEscalations.map((p, idx) => (
-                    <div
-                        key={idx}
-                        className="p-5 mb-6 bg-[#101018] border border-[#2a2a30] rounded-xl"
-                    >
+                    <div key={idx} className="p-5 mb-6 bg-[#101018] border border-[#2a2a30] rounded-xl">
                         <p className="text-sm text-indigo-300 mb-3">
                             Novo escalado (sugestão)
                         </p>
@@ -308,15 +308,14 @@ export default function EventEscalationModal({
                                     value={p.roleId}
                                     onChange={e => {
                                         const value = e.target.value;
+                                        loadPriority(value);
                                         setPendingEscalations(prev => {
                                             const copy = [...prev];
-                                            const role = allRoles.find(r => r.id === value);
                                             copy[idx].roleId = value;
-                                            copy[idx].roleName = role?.name || "";
                                             return copy;
                                         });
                                     }}
-                                    className="w-full bg-[#1a1a1e] border border-[#2a2a30] rounded-lg px-3 py-2 mt-1 text-gray-200"
+                                    className="w-full bg-[#1a1a1e] border border-[#2a2a30] rounded-lg px-3 py-2 mt-1"
                                 >
                                     <option value="">Selecione...</option>
                                     {allRoles.map(r => (
@@ -337,10 +336,10 @@ export default function EventEscalationModal({
                                             return copy;
                                         });
                                     }}
-                                    className="w-full bg-[#1a1a1e] border border-[#2a2a30] rounded-lg px-3 py-2 mt-1 text-gray-200"
+                                    className="w-full bg-[#1a1a1e] border border-[#2a2a30] rounded-lg px-3 py-2 mt-1"
                                 >
                                     <option value="">Selecione...</option>
-                                    {allIntegrants.map(i => (
+                                    {getOrderedIntegrants(p.roleId).map(i => (
                                         <option key={i.user.id} value={i.user.id}>
                                             {i.user.name}
                                         </option>
@@ -367,7 +366,6 @@ export default function EventEscalationModal({
                     </div>
                 ))}
 
-                {/* ADIÇÃO MANUAL */}
                 {editable && !adding && (
                     <Button
                         className="w-full bg-[#7c5fff] hover:bg-[#6a4ee8] flex items-center justify-center gap-2 py-3"
@@ -387,10 +385,10 @@ export default function EventEscalationModal({
                             <select
                                 value={selectedIntegrant}
                                 onChange={e => setSelectedIntegrant(e.target.value)}
-                                className="w-full bg-[#1a1a1e] border border-[#2a2a30] rounded-lg px-3 py-2 mt-1 text-gray-200"
+                                className="w-full bg-[#1a1a1e] border border-[#2a2a30] rounded-lg px-3 py-2 mt-1"
                             >
                                 <option value="">Selecione...</option>
-                                {allIntegrants.map(i => (
+                                {getOrderedIntegrants(selectedRole).map(i => (
                                     <option key={i.user.id} value={i.user.id}>
                                         {i.user.name}
                                     </option>
@@ -402,8 +400,12 @@ export default function EventEscalationModal({
                             <label className="text-sm text-gray-300">Papel</label>
                             <select
                                 value={selectedRole}
-                                onChange={e => setSelectedRole(e.target.value)}
-                                className="w-full bg-[#1a1a1e] border border-[#2a2a30] rounded-lg px-3 py-2 mt-1 text-gray-200"
+                                onChange={e => {
+                                    const value = e.target.value;
+                                    setSelectedRole(value);
+                                    loadPriority(value);
+                                }}
+                                className="w-full bg-[#1a1a1e] border border-[#2a2a30] rounded-lg px-3 py-2 mt-1"
                             >
                                 <option value="">Selecione...</option>
                                 {allRoles.map(r => (
