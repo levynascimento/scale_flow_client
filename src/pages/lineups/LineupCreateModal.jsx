@@ -13,10 +13,9 @@ export default function LineupCreateModal({ open, onClose, onCreated }) {
     const [name, setName] = useState("");
     const [roles, setRoles] = useState([]);
 
-    // lista de papéis adicionados: [{ roleId, description }]
+    // [{ roleId }]
     const [items, setItems] = useState([]);
     const [newRole, setNewRole] = useState("");
-    const [newDesc, setNewDesc] = useState("");
 
     const [loading, setLoading] = useState(true);
     const [closing, setClosing] = useState(false);
@@ -39,7 +38,6 @@ export default function LineupCreateModal({ open, onClose, onCreated }) {
                 setRoles(r);
 
                 setItems([]);
-                setNewDesc("");
                 setNewRole("");
                 setName("");
             } catch {
@@ -57,15 +55,10 @@ export default function LineupCreateModal({ open, onClose, onCreated }) {
 
         setItems((prev) => [
             ...prev,
-            {
-                // UUID string, não converter pra número
-                roleId: newRole,
-                description: newDesc,
-            },
+            { roleId: newRole },
         ]);
 
         setNewRole("");
-        setNewDesc("");
     }
 
     function handleRemoveItem(index) {
@@ -80,7 +73,7 @@ export default function LineupCreateModal({ open, onClose, onCreated }) {
         try {
             await createLineup(bandId, {
                 name: name.trim(),
-                roles: items, // [{ roleId, description }]
+                roles: items, // [{ roleId }]
             });
 
             toast.success("Formação criada!");
@@ -95,38 +88,24 @@ export default function LineupCreateModal({ open, onClose, onCreated }) {
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-            <div
-                className={`bg-[#1b1b1f] border border-[#2a2a30] rounded-xl p-6 w-[90%] max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${
-                    closing ? "animate-fadeOut" : "animate-scaleIn"
-                }`}
-            >
-                {/* HEADER */}
+            <div className={`bg-[#1b1b1f] border border-[#2a2a30] rounded-xl p-6 w-[90%] max-w-lg shadow-xl ${closing ? "animate-fadeOut" : "animate-scaleIn"}`}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl text-gray-100 font-semibold">
                         Nova Formação
                     </h2>
-                    <button
-                        onClick={handleAnimatedClose}
-                        className="text-gray-400 hover:text-white"
-                    >
+                    <button onClick={handleAnimatedClose} className="text-gray-400 hover:text-white">
                         <X size={22} />
                     </button>
                 </div>
 
-                {/* Nome */}
-                <label className="text-gray-300 text-sm">
-                    Nome da formação
-                </label>
+                <label className="text-gray-300 text-sm">Nome da formação</label>
                 <input
                     className="w-full bg-[#121214] border border-[#2d2d35] rounded-lg px-3 py-2 text-gray-200 mb-4"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                 />
 
-                {/* ITENS ADICIONADOS */}
-                <p className="text-gray-300 text-sm mb-2">
-                    Papéis adicionados
-                </p>
+                <p className="text-gray-300 text-sm mb-2">Papéis adicionados</p>
 
                 {items.length === 0 ? (
                     <p className="text-gray-500 text-sm mb-4">
@@ -140,47 +119,28 @@ export default function LineupCreateModal({ open, onClose, onCreated }) {
                             );
 
                             return (
-                                <div
-                                    key={index}
-                                    className="bg-[#242428] border border-[#33333a] p-3 rounded-lg"
-                                >
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-gray-200">
-                                            {role?.name ?? "Papel não encontrado"}
-                                        </p>
+                                <div key={index} className="bg-[#242428] border border-[#33333a] p-3 rounded-lg flex justify-between items-center">
+                                    <p className="text-gray-200">
+                                        {role?.name ?? "Papel"}
+                                    </p>
 
-                                        <button
-                                            onClick={() =>
-                                                handleRemoveItem(index)
-                                            }
-                                            className="bg-red-600 hover:bg-red-700 p-1 rounded"
-                                        >
-                                            <Trash2
-                                                size={16}
-                                                className="text-white"
-                                            />
-                                        </button>
-                                    </div>
-
-                                    {item.description && (
-                                        <p className="text-gray-400 text-xs mt-1">
-                                            {item.description}
-                                        </p>
-                                    )}
+                                    <button
+                                        onClick={() => handleRemoveItem(index)}
+                                        className="bg-red-600 hover:bg-red-700 p-1 rounded"
+                                    >
+                                        <Trash2 size={16} className="text-white" />
+                                    </button>
                                 </div>
                             );
                         })}
                     </div>
                 )}
 
-                {/* FORM PARA ADICIONAR NOVO PAPEL */}
-                <p className="text-gray-300 text-sm mb-2">
-                    Adicionar papel
-                </p>
+                <p className="text-gray-300 text-sm mb-2">Adicionar papel</p>
 
-                <div className="flex gap-2 mb-3">
+                <div className="flex gap-2 mb-4">
                     <select
-                        className="w-40 bg-[#121214] border border-[#2d2d35] rounded-lg px-2 py-2 text-gray-200"
+                        className="flex-1 bg-[#121214] border border-[#2d2d35] rounded-lg px-2 py-2 text-gray-200"
                         value={newRole}
                         onChange={(e) => setNewRole(e.target.value)}
                     >
@@ -192,13 +152,6 @@ export default function LineupCreateModal({ open, onClose, onCreated }) {
                         ))}
                     </select>
 
-                    <input
-                        className="flex-1 bg-[#121214] border border-[#2d2d35] rounded-lg px-3 py-2 text-gray-200"
-                        placeholder="Descrição (opcional)"
-                        value={newDesc}
-                        onChange={(e) => setNewDesc(e.target.value)}
-                    />
-
                     <button
                         onClick={handleAddItem}
                         className="bg-sf-primary hover:bg-sf-primary-600 text-white px-3 rounded-lg"
@@ -207,7 +160,6 @@ export default function LineupCreateModal({ open, onClose, onCreated }) {
                     </button>
                 </div>
 
-                {/* BOTÃO FINAL */}
                 <button
                     onClick={handleCreate}
                     className="w-full px-4 py-2 bg-sf-primary text-white rounded-lg hover:bg-sf-primary-600"
